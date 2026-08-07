@@ -1,0 +1,54 @@
+# OS / IDE Files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Node / Frontend Dependency Files
+node_modules/
+package-lock.json
+yarn.lock
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Android Build & Output Directories
+frontend/android-app/android/app/build/
+frontend/android-app/android/build/
+frontend/android-app/android/.gradle/
+frontend/android-app/android/local.properties
+.gradle/
+*.apk
+*.aar
+*.keystore
+
+# iOS Build Directories
+frontend/android-app/ios/Pods/
+frontend/android-app/ios/build/
+frontend/android-app/ios/.xcode.env.local
+DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Python / FastAPI Backend Environment Files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+ENV/
+.env
+db.sqlite3
+
+# Docker local persistence
+docker-compose.override.yml

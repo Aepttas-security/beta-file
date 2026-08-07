@@ -1,0 +1,92 @@
+version: '3.8'
+
+# ========================================================
+# DOCKER-COMPOSE MONOREPO TEMPLATE
+# ========================================================
+# Instructions for API Teams:
+# Fill in your service dependencies, build settings, environment
+# variables, database configs, and custom container parameters.
+# Replace any placeholders marked as <PLACEHOLDER_...> below.
+# ========================================================
+
+services:
+
+  # ----------------------------------------------------
+  # 1. api-auth (Authentication API Service)
+  # ----------------------------------------------------
+  api-auth:
+    container_name: security_api_auth
+    build:
+      context: ./backend/api-auth
+      dockerfile: <PLACEHOLDER_AUTH_DOCKERFILE_PATH_OR_DEFAULT_Dockerfile>
+    ports:
+      - "<PLACEHOLDER_AUTH_HOST_PORT>:<PLACEHOLDER_AUTH_CONTAINER_PORT>"
+    environment:
+      - DATABASE_URL=<PLACEHOLDER_AUTH_DATABASE_CONNECTION_STRING>
+      - JWT_SECRET=<PLACEHOLDER_AUTH_JWT_SECRET_KEY>
+      - ENVIRONMENT=<PLACEHOLDER_AUTH_APP_ENVIRONMENT_dev_or_prod>
+      # Add custom variables here:
+    restart: always
+
+  # ----------------------------------------------------
+  # 2. api-parent-child (Parent-Child pairing Service)
+  # ----------------------------------------------------
+  api-parent-child:
+    container_name: security_api_parent_child
+    build:
+      context: ./backend/api-parent-child
+      dockerfile: <PLACEHOLDER_PAIRING_DOCKERFILE_PATH_OR_DEFAULT_Dockerfile>
+    ports:
+      - "<PLACEHOLDER_PAIRING_HOST_PORT>:<PLACEHOLDER_PAIRING_CONTAINER_PORT>"
+    environment:
+      - DATABASE_URL=<PLACEHOLDER_PAIRING_DATABASE_CONNECTION_STRING>
+      - REDIS_URL=<PLACEHOLDER_PAIRING_REDIS_SYNC_CONNECTION_STRING>
+      - ENVIRONMENT=<PLACEHOLDER_PAIRING_APP_ENVIRONMENT_dev_or_prod>
+      # Add custom variables here:
+    restart: always
+    depends_on:
+      - api-auth
+
+  # ----------------------------------------------------
+  # 3. api-monitoring (Device monitoring Service)
+  # ----------------------------------------------------
+  api-monitoring:
+    container_name: security_api_monitoring
+    build:
+      context: ./backend/api-monitoring
+      dockerfile: <PLACEHOLDER_MONITORING_DOCKERFILE_PATH_OR_DEFAULT_Dockerfile>
+    ports:
+      - "<PLACEHOLDER_MONITORING_HOST_PORT>:<PLACEHOLDER_MONITORING_CONTAINER_PORT>"
+    environment:
+      - DATABASE_URL=<PLACEHOLDER_MONITORING_DATABASE_CONNECTION_STRING>
+      - ENVIRONMENT=<PLACEHOLDER_MONITORING_APP_ENVIRONMENT_dev_or_prod>
+      # Add custom variables here:
+    restart: always
+    depends_on:
+      - api-auth
+
+  # ----------------------------------------------------
+  # 4. api-security (Security/alert Service)
+  # ----------------------------------------------------
+  api-security:
+    container_name: security_api_security
+    build:
+      context: ./backend/api-security
+      dockerfile: <PLACEHOLDER_SECURITY_DOCKERFILE_PATH_OR_DEFAULT_Dockerfile>
+    ports:
+      - "<PLACEHOLDER_SECURITY_HOST_PORT>:<PLACEHOLDER_SECURITY_CONTAINER_PORT>"
+    environment:
+      - DATABASE_URL=<PLACEHOLDER_SECURITY_DATABASE_CONNECTION_STRING>
+      - SECURITY_TOKEN_KEY=<PLACEHOLDER_SECURITY_TOKEN_VERIFICATION_KEY>
+      - ENVIRONMENT=<PLACEHOLDER_SECURITY_APP_ENVIRONMENT_dev_or_prod>
+      # Add custom variables here:
+    restart: always
+    depends_on:
+      - api-auth
+
+# ========================================================
+# SHARED DATABASES / INFRASTRUCTURE SERVICES (OPTIONAL)
+# ========================================================
+# If you are spinning up shared databases like PostgreSQL, Redis, or MongoDB,
+# configure them in the services section below.
+# ========================================================
