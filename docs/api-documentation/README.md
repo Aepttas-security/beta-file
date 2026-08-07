@@ -1,215 +1,133 @@
-# API Documentation Reference
+# API Documentation Specification Templates
 
-This directory serves as the centralized registry for the integration endpoints across the 4 core API backend services. Use the templates below to define and synchronize specifications for each backend module.
+This file contains the template structure to be completed by the five backend teams. Do not overwrite or invent actual API details; let each team provide their specifications by editing this document.
 
 ---
 
-## 1. Authentication API (`api-auth`)
+## 1. Parent Control API
 
-* **API Name**: Authentication & User Management Service
-* **Base URL**: `http://localhost:8000/api/v1/auth` (Placeholder - To be finalized by Team)
-* **Authentication Requirements**: None / Public for Register & Login; JWT Bearer Token for Session verification.
-
-### Endpoints
-
-#### POST `/register`
-* **HTTP Method**: `POST`
+* **Base URL**: `<PLACEHOLDER_PARENT_CONTROL_BASE_URL>`
+* **Endpoints**:
+  * `<PLACEHOLDER_PARENT_CONTROL_ENDPOINT_1>` (e.g., app limits / profile pairing status)
+* **HTTP Methods**: `<PLACEHOLDER_HTTP_METHOD_GET_POST_ETC>`
 * **Request Headers**:
   ```json
-  {
-    "Content-Type": "application/json"
-  }
+  <PLACEHOLDER_REQUEST_HEADERS_JSON>
   ```
 * **Request Body**:
   ```json
-  {
-    "email": "parent@example.com",
-    "password": "SecurePassword123",
-    "name": "John Doe"
-  }
+  <PLACEHOLDER_REQUEST_BODY_JSON>
   ```
-* **Response Format (201 Created)**:
+* **Response Format**:
   ```json
-  {
-    "status": "success",
-    "message": "Account successfully created.",
-    "user_id": 101
-  }
+  <PLACEHOLDER_RESPONSE_FORMAT_JSON>
   ```
-* **Error Responses (400 Bad Request)**:
+* **Authentication**: `<PLACEHOLDER_AUTHENTICATION_TYPE_JWT_OR_KEY>`
+* **Error Responses**:
   ```json
-  {
-    "status": "error",
-    "detail": "Email is already registered."
-  }
-  ```
-
-#### POST `/login`
-* **HTTP Method**: `POST`
-* **Request Headers**:
-  ```json
-  {
-    "Content-Type": "application/json"
-  }
-  ```
-* **Request Body**:
-  ```json
-  {
-    "email": "parent@example.com",
-    "password": "SecurePassword123"
-  }
-  ```
-* **Response Format (200 OK)**:
-  ```json
-  {
-    "status": "success",
-    "user_id": 101,
-    "parent_name": "John Doe",
-    "token_type": "bearer",
-    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-  ```
-* **Error Responses (401 Unauthorized)**:
-  ```json
-  {
-    "status": "error",
-    "detail": "Invalid credentials provided."
-  }
+  <PLACEHOLDER_ERROR_RESPONSE_JSON>
   ```
 
 ---
 
-## 2. Parent-Child Pairing API (`api-parent-child`)
+## 2. Call Management API
 
-* **API Name**: Parent-Child Linkage & Settings Sync Service
-* **Base URL**: `http://localhost:8000/api/v1/pairing` (Placeholder - To be finalized by Team)
-* **Authentication Requirements**: JWT Bearer Token (Parent Account Auth)
-
-### Endpoints
-
-#### POST `/pair`
-* **HTTP Method**: `POST`
+* **Base URL**: `<PLACEHOLDER_CALL_MANAGEMENT_BASE_URL>`
+* **Endpoints**:
+  * `<PLACEHOLDER_CALL_MANAGEMENT_ENDPOINT_1>` (e.g., spam numbers list / incoming logs)
+* **HTTP Methods**: `<PLACEHOLDER_HTTP_METHOD_GET_POST_ETC>`
 * **Request Headers**:
   ```json
-  {
-    "Content-Type": "application/json",
-    "Authorization": "Bearer <access_token>"
-  }
+  <PLACEHOLDER_REQUEST_HEADERS_JSON>
   ```
 * **Request Body**:
   ```json
-  {
-    "pairing_code": "XYZ-987-ABC",
-    "device_name": "Child Pixel 6"
-  }
+  <PLACEHOLDER_REQUEST_BODY_JSON>
   ```
-* **Response Format (200 OK)**:
+* **Response Format**:
   ```json
-  {
-    "status": "success",
-    "message": "Device paired successfully.",
-    "child_id": 402,
-    "device_id": "device_abc123"
-  }
+  <PLACEHOLDER_RESPONSE_FORMAT_JSON>
   ```
-* **Error Responses (404 Not Found / 400 Bad Request)**:
+* **Authentication**: `<PLACEHOLDER_AUTHENTICATION_TYPE_JWT_OR_KEY>`
+* **Error Responses**:
   ```json
-  {
-    "status": "error",
-    "detail": "Pairing code expired or invalid."
-  }
+  <PLACEHOLDER_ERROR_RESPONSE_JSON>
   ```
 
 ---
 
-## 3. Device Monitoring API (`api-monitoring`)
+## 3. Vulnerability API
 
-* **API Name**: Application & Screen Limit Management Service
-* **Base URL**: `http://localhost:8000/api/v1/monitoring` (Placeholder - To be finalized by Team)
-* **Authentication Requirements**: JWT Bearer Token / Device-Link Key
-
-### Endpoints
-
-#### POST `/limits`
-* **HTTP Method**: `POST`
+* **Base URL**: `<PLACEHOLDER_VULNERABILITY_BASE_URL>`
+* **Endpoints**:
+  * `<PLACEHOLDER_VULNERABILITY_ENDPOINT_1>` (e.g., package scanning / posture logs)
+* **HTTP Methods**: `<PLACEHOLDER_HTTP_METHOD_GET_POST_ETC>`
 * **Request Headers**:
   ```json
-  {
-    "Content-Type": "application/json",
-    "Authorization": "Bearer <access_token>"
-  }
+  <PLACEHOLDER_REQUEST_HEADERS_JSON>
   ```
 * **Request Body**:
   ```json
-  {
-    "child_id": 402,
-    "app_limits": [
-      {
-        "package_name": "com.gaming.app",
-        "time_limit_minutes": 60,
-        "is_blocked": false
-      }
-    ]
-  }
+  <PLACEHOLDER_REQUEST_BODY_JSON>
   ```
-* **Response Format (200 OK)**:
+* **Response Format**:
   ```json
-  {
-    "status": "success",
-    "message": "Application rules and screen limits saved."
-  }
+  <PLACEHOLDER_RESPONSE_FORMAT_JSON>
   ```
-* **Error Responses (403 Forbidden)**:
+* **Authentication**: `<PLACEHOLDER_AUTHENTICATION_TYPE_JWT_OR_KEY>`
+* **Error Responses**:
   ```json
-  {
-    "status": "error",
-    "detail": "Permission denied. Parent account not paired with this child ID."
-  }
+  <PLACEHOLDER_ERROR_RESPONSE_JSON>
   ```
 
 ---
 
-## 4. Security & Alert API (`api-security`)
+## 4. Geolocation API
 
-* **API Name**: Malware Scanning, Geolocation alerts & Posture Audit Service
-* **Base URL**: `http://localhost:8000/api/v1/security` (Placeholder - To be finalized by Team)
-* **Authentication Requirements**: Device Hardware Signature / Link Token
-
-### Endpoints
-
-#### POST `/alerts`
-* **HTTP Method**: `POST`
+* **Base URL**: `<PLACEHOLDER_GEOLOCATION_BASE_URL>`
+* **Endpoints**:
+  * `<PLACEHOLDER_GEOLOCATION_ENDPOINT_1>` (e.g., coordinate logs / nearby places Osm logs)
+* **HTTP Methods**: `<PLACEHOLDER_HTTP_METHOD_GET_POST_ETC>`
 * **Request Headers**:
   ```json
-  {
-    "Content-Type": "application/json",
-    "Authorization": "Bearer <access_token>"
-  }
+  <PLACEHOLDER_REQUEST_HEADERS_JSON>
   ```
 * **Request Body**:
   ```json
-  {
-    "device_id": "device_abc123",
-    "alert_type": "malware_detected",
-    "severity": "high",
-    "details": {
-      "app_name": "NetMirror.apk",
-      "package_name": "com.sallysoft.srpol.edge",
-      "threat_type": "Trojan-Banker"
-    }
-  }
+  <PLACEHOLDER_REQUEST_BODY_JSON>
   ```
-* **Response Format (200 OK)**:
+* **Response Format**:
   ```json
-  {
-    "status": "success",
-    "alert_logged_id": 9081
-  }
+  <PLACEHOLDER_RESPONSE_FORMAT_JSON>
   ```
-* **Error Responses (500 Internal Server Error)**:
+* **Authentication**: `<PLACEHOLDER_AUTHENTICATION_TYPE_JWT_OR_KEY>`
+* **Error Responses**:
   ```json
-  {
-    "status": "error",
-    "detail": "Database connection timeout. Failed to record alert."
-  }
+  <PLACEHOLDER_ERROR_RESPONSE_JSON>
+  ```
+
+---
+
+## 5. Malware API
+
+* **Base URL**: `<PLACEHOLDER_MALWARE_BASE_URL>`
+* **Endpoints**:
+  * `<PLACEHOLDER_MALWARE_ENDPOINT_1>` (e.g., md5 signature hash validation / quarantine list)
+* **HTTP Methods**: `<PLACEHOLDER_HTTP_METHOD_GET_POST_ETC>`
+* **Request Headers**:
+  ```json
+  <PLACEHOLDER_REQUEST_HEADERS_JSON>
+  ```
+* **Request Body**:
+  ```json
+  <PLACEHOLDER_REQUEST_BODY_JSON>
+  ```
+* **Response Format**:
+  ```json
+  <PLACEHOLDER_RESPONSE_FORMAT_JSON>
+  ```
+* **Authentication**: `<PLACEHOLDER_AUTHENTICATION_TYPE_JWT_OR_KEY>`
+* **Error Responses**:
+  ```json
+  <PLACEHOLDER_ERROR_RESPONSE_JSON>
   ```

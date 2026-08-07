@@ -1,40 +1,39 @@
-# Architecture Specification
+# Monorepo System Architecture
 
-This document details the high-level system architecture of the monorepo ecosystem, highlighting data flow and communication protocols between the Android Frontend UI client and the respective backend microservices.
+This document describes the design architecture of the Android Security Application monorepo, detailing the decoupling logic and routing configurations.
 
-## Intended Architecture Flow
+---
 
-```mermaid
-graph TD
-    UI[Android UI Client] -->|HTTP / REST requests| API[API Gateway / Router]
-    
-    API --> AUTH[api-auth: Authentication Service]
-    API --> PARENT[api-parent-child: Pairing Service]
-    API --> MON[api-monitoring: Limits & Logs Service]
-    API --> SEC[api-security: Threat Detection Alerts]
+## High-Level Diagram
 
-    AUTH --> DB[(Database / Services Layer)]
-    PARENT --> DB
-    MON --> DB
-    SEC --> DB
+```
+             Android Application
+                    │
+                    │ API Requests
+                    ▼
+             Backend/API Layer
+                    │
+ ┌──────────────────┼──────────────────┐
+ │         │         │         │        │
+ ▼         ▼         ▼         ▼        ▼
+Parent     Call      Vulnerability  Geo    Malware
+Control  Management       API       API      API
+ │         │         │         │        │
+ └─────────┴─────────┴─────────┴────────┘
+ │
+ Database / Services
 ```
 
 ---
 
-## Component Layers
+## Architectural Principles
 
-### 1. Android Frontend UI Client
-* **Role**: Collects user interactions, logs events, monitors device integrity metrics, triggers vulnerability scanners, and provides interface panels for settings controls.
-* **Communication Protocol**: Dispatches asynchronous HTTP/REST requests (JSON payloads) over TLS.
+### 1. Independent Maintainability
+Although all five backend services reside in the same physical Git repository (`SecurityApp/backend/`), they are designed as completely separate microservices.
+* **No code sharing**: Each service defines its own models, endpoints, package configurations, and runtime dependencies.
+* **Separation of deployment**: Each service contains its own virtual environments, dependencies manifest, and Docker configs. This ensures a bug in one service (e.g., Malware) cannot crash or interrupt the compilation of other systems (e.g., Geolocation).
 
-### 2. API Gateway / Communication Interface
-* **Role**: Resolves local environment addresses (e.g., matching backend ports) and routes individual API payloads to the appropriate microservice.
-
-### 3. Backend APIs (Modules)
-* **Authentication (`api-auth`)**: Validates user credentials, processes JWT generation, handles password hashing, and verifies active sessions.
-* **Parent-Child Linkage (`api-parent-child`)**: Registers pairing coordinates, connects active device link instances, and authorizes family hierarchy links.
-* **Device Monitoring (`api-monitoring`)**: Synchronizes device statistics, monitors screen limit timers, records app blocking rules, and updates settings.
-* **Vulnerability & Security Alerts (`api-security`)**: Manages malware definition libraries, performs scan verification, captures location-tracking changes, logs GPS spoof confidence stats, and processes security posture reports.
-
-### 4. Database & External Services
-* **Role**: Standardizes persistent schema storage and acts as the datastore for pairing status, transaction tables, user hashes, and threat feeds.
+### 2. Standardized Communication
+* **JSON REST Gateways**: The Android UI client communicates via standard HTTP request structures.
+* **Decoupled routing**: During development, each backend container binds to its own port. The frontend redirects traffic dynamically based on the requested telemetry category.
+* **Independent databases**: Backend modules interact only with their own designated local or cloud tables to prevent database lock contention.

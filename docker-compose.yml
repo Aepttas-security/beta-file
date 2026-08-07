@@ -4,89 +4,105 @@ version: '3.8'
 # DOCKER-COMPOSE MONOREPO TEMPLATE
 # ========================================================
 # Instructions for API Teams:
-# Fill in your service dependencies, build settings, environment
-# variables, database configs, and custom container parameters.
+# Fill in your service configurations in your respective sections.
+# Do not modify other teams' services.
 # Replace any placeholders marked as <PLACEHOLDER_...> below.
 # ========================================================
 
 services:
 
   # ----------------------------------------------------
-  # 1. api-auth (Authentication API Service)
+  # 1. parent-control Service
   # ----------------------------------------------------
-  api-auth:
-    container_name: security_api_auth
+  parent-control:
+    container_name: security_parent_control
     build:
-      context: ./backend/api-auth
-      dockerfile: <PLACEHOLDER_AUTH_DOCKERFILE_PATH_OR_DEFAULT_Dockerfile>
+      context: ./backend/parent-control
+      dockerfile: <PLACEHOLDER_PARENT_CONTROL_DOCKERFILE_PATH>
+    # Build/run command:
+    # command: <PLACEHOLDER_PARENT_CONTROL_RUN_COMMAND_E_G_uvicorn>
     ports:
-      - "<PLACEHOLDER_AUTH_HOST_PORT>:<PLACEHOLDER_AUTH_CONTAINER_PORT>"
+      - "<PLACEHOLDER_PARENT_CONTROL_HOST_PORT>:<PLACEHOLDER_PARENT_CONTROL_CONTAINER_PORT>"
     environment:
-      - DATABASE_URL=<PLACEHOLDER_AUTH_DATABASE_CONNECTION_STRING>
-      - JWT_SECRET=<PLACEHOLDER_AUTH_JWT_SECRET_KEY>
-      - ENVIRONMENT=<PLACEHOLDER_AUTH_APP_ENVIRONMENT_dev_or_prod>
-      # Add custom variables here:
+      - <PLACEHOLDER_PARENT_CONTROL_ENV_VARIABLE_1>=<VALUE>
+      - <PLACEHOLDER_PARENT_CONTROL_ENV_VARIABLE_2>=<VALUE>
+    # Database/service dependencies:
+    # depends_on:
+    #   - <PLACEHOLDER_PARENT_CONTROL_DEPENDENCIES_E_G_db_or_redis>
     restart: always
 
   # ----------------------------------------------------
-  # 2. api-parent-child (Parent-Child pairing Service)
+  # 2. call-management Service
   # ----------------------------------------------------
-  api-parent-child:
-    container_name: security_api_parent_child
+  call-management:
+    container_name: security_call_management
     build:
-      context: ./backend/api-parent-child
-      dockerfile: <PLACEHOLDER_PAIRING_DOCKERFILE_PATH_OR_DEFAULT_Dockerfile>
+      context: ./backend/call-management
+      dockerfile: <PLACEHOLDER_CALL_MANAGEMENT_DOCKERFILE_PATH>
+    # Build/run command:
+    # command: <PLACEHOLDER_CALL_MANAGEMENT_RUN_COMMAND>
     ports:
-      - "<PLACEHOLDER_PAIRING_HOST_PORT>:<PLACEHOLDER_PAIRING_CONTAINER_PORT>"
+      - "<PLACEHOLDER_CALL_MANAGEMENT_HOST_PORT>:<PLACEHOLDER_CALL_MANAGEMENT_CONTAINER_PORT>"
     environment:
-      - DATABASE_URL=<PLACEHOLDER_PAIRING_DATABASE_CONNECTION_STRING>
-      - REDIS_URL=<PLACEHOLDER_PAIRING_REDIS_SYNC_CONNECTION_STRING>
-      - ENVIRONMENT=<PLACEHOLDER_PAIRING_APP_ENVIRONMENT_dev_or_prod>
-      # Add custom variables here:
+      - <PLACEHOLDER_CALL_MANAGEMENT_ENV_VARIABLE_1>=<VALUE>
+    # Database/service dependencies:
+    # depends_on:
+    #   - <PLACEHOLDER_CALL_MANAGEMENT_DEPENDENCIES>
     restart: always
-    depends_on:
-      - api-auth
 
   # ----------------------------------------------------
-  # 3. api-monitoring (Device monitoring Service)
+  # 3. vulnerability Service
   # ----------------------------------------------------
-  api-monitoring:
-    container_name: security_api_monitoring
+  vulnerability:
+    container_name: security_vulnerability
     build:
-      context: ./backend/api-monitoring
-      dockerfile: <PLACEHOLDER_MONITORING_DOCKERFILE_PATH_OR_DEFAULT_Dockerfile>
+      context: ./backend/vulnerability
+      dockerfile: <PLACEHOLDER_VULNERABILITY_DOCKERFILE_PATH>
+    # Build/run command:
+    # command: <PLACEHOLDER_VULNERABILITY_RUN_COMMAND>
     ports:
-      - "<PLACEHOLDER_MONITORING_HOST_PORT>:<PLACEHOLDER_MONITORING_CONTAINER_PORT>"
+      - "<PLACEHOLDER_VULNERABILITY_HOST_PORT>:<PLACEHOLDER_VULNERABILITY_CONTAINER_PORT>"
     environment:
-      - DATABASE_URL=<PLACEHOLDER_MONITORING_DATABASE_CONNECTION_STRING>
-      - ENVIRONMENT=<PLACEHOLDER_MONITORING_APP_ENVIRONMENT_dev_or_prod>
-      # Add custom variables here:
+      - <PLACEHOLDER_VULNERABILITY_ENV_VARIABLE_1>=<VALUE>
+    # Database/service dependencies:
+    # depends_on:
+    #   - <PLACEHOLDER_VULNERABILITY_DEPENDENCIES>
     restart: always
-    depends_on:
-      - api-auth
 
   # ----------------------------------------------------
-  # 4. api-security (Security/alert Service)
+  # 4. geolocation Service
   # ----------------------------------------------------
-  api-security:
-    container_name: security_api_security
+  geolocation:
+    container_name: security_geolocation
     build:
-      context: ./backend/api-security
-      dockerfile: <PLACEHOLDER_SECURITY_DOCKERFILE_PATH_OR_DEFAULT_Dockerfile>
+      context: ./backend/geolocation
+      dockerfile: <PLACEHOLDER_GEOLOCATION_DOCKERFILE_PATH>
+    # Build/run command:
+    # command: <PLACEHOLDER_GEOLOCATION_RUN_COMMAND>
     ports:
-      - "<PLACEHOLDER_SECURITY_HOST_PORT>:<PLACEHOLDER_SECURITY_CONTAINER_PORT>"
+      - "<PLACEHOLDER_GEOLOCATION_HOST_PORT>:<PLACEHOLDER_GEOLOCATION_CONTAINER_PORT>"
     environment:
-      - DATABASE_URL=<PLACEHOLDER_SECURITY_DATABASE_CONNECTION_STRING>
-      - SECURITY_TOKEN_KEY=<PLACEHOLDER_SECURITY_TOKEN_VERIFICATION_KEY>
-      - ENVIRONMENT=<PLACEHOLDER_SECURITY_APP_ENVIRONMENT_dev_or_prod>
-      # Add custom variables here:
+      - <PLACEHOLDER_GEOLOCATION_ENV_VARIABLE_1>=<VALUE>
+    # Database/service dependencies:
+    # depends_on:
+    #   - <PLACEHOLDER_GEOLOCATION_DEPENDENCIES>
     restart: always
-    depends_on:
-      - api-auth
 
-# ========================================================
-# SHARED DATABASES / INFRASTRUCTURE SERVICES (OPTIONAL)
-# ========================================================
-# If you are spinning up shared databases like PostgreSQL, Redis, or MongoDB,
-# configure them in the services section below.
-# ========================================================
+  # ----------------------------------------------------
+  # 5. malware Service
+  # ----------------------------------------------------
+  malware:
+    container_name: security_malware
+    build:
+      context: ./backend/malware
+      dockerfile: <PLACEHOLDER_MALWARE_DOCKERFILE_PATH>
+    # Build/run command:
+    # command: <PLACEHOLDER_MALWARE_RUN_COMMAND>
+    ports:
+      - "<PLACEHOLDER_MALWARE_HOST_PORT>:<PLACEHOLDER_MALWARE_CONTAINER_PORT>"
+    environment:
+      - <PLACEHOLDER_MALWARE_ENV_VARIABLE_1>=<VALUE>
+    # Database/service dependencies:
+    # depends_on:
+    #   - <PLACEHOLDER_MALWARE_DEPENDENCIES>
+    restart: always
