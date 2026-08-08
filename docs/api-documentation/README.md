@@ -110,24 +110,41 @@ This file contains the template structure to be completed by the five backend te
 
 ## 5. Malware API
 
-* **Base URL**: `<PLACEHOLDER_MALWARE_BASE_URL>`
+* **Base URL**: `http://localhost:8001`
 * **Endpoints**:
-  * `<PLACEHOLDER_MALWARE_ENDPOINT_1>` (e.g., md5 signature hash validation / quarantine list)
-* **HTTP Methods**: `<PLACEHOLDER_HTTP_METHOD_GET_POST_ETC>`
+  * `/api/scan` - Upload and scan an APK file
+  * `/api/scans` - List all scanned files
+  * `/api/dashboard` - Get dashboard metrics and scores
+  * `/api/quarantine` - List quarantined files
+  * `/api/history` - List scan history logs
+* **HTTP Methods**: `GET, POST`
 * **Request Headers**:
   ```json
-  <PLACEHOLDER_REQUEST_HEADERS_JSON>
+  {
+    "Content-Type": "application/json"
+  }
   ```
 * **Request Body**:
   ```json
-  <PLACEHOLDER_REQUEST_BODY_JSON>
+  {
+    "filename": "suspicious_app.apk",
+    "file_path": "/uploads/suspicious_app.apk"
+  }
   ```
 * **Response Format**:
   ```json
-  <PLACEHOLDER_RESPONSE_FORMAT_JSON>
+  {
+    "id": "1",
+    "filename": "suspicious_app.apk",
+    "status": "Malicious",
+    "threat_type": "adware",
+    "risk_level": "High"
+  }
   ```
-* **Authentication**: `<PLACEHOLDER_AUTHENTICATION_TYPE_JWT_OR_KEY>`
+* **Authentication**: `None required`
 * **Error Responses**:
   ```json
-  <PLACEHOLDER_ERROR_RESPONSE_JSON>
+  {
+    "error": "Internal server error details"
+  }
   ```

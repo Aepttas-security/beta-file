@@ -95,14 +95,11 @@ services:
     container_name: security_malware
     build:
       context: ./backend/malware
-      dockerfile: <PLACEHOLDER_MALWARE_DOCKERFILE_PATH>
-    # Build/run command:
-    # command: <PLACEHOLDER_MALWARE_RUN_COMMAND>
+      dockerfile: Dockerfile
     ports:
-      - "<PLACEHOLDER_MALWARE_HOST_PORT>:<PLACEHOLDER_MALWARE_CONTAINER_PORT>"
+      - "8001:8001"
     environment:
-      - <PLACEHOLDER_MALWARE_ENV_VARIABLE_1>=<VALUE>
-    # Database/service dependencies:
-    # depends_on:
-    #   - <PLACEHOLDER_MALWARE_DEPENDENCIES>
+      - DATABASE_URL=postgresql+asyncpg://apt_malware_app:intren%40_mal@100.112.49.39:5432/aepttas_xdr
+      - DB_SCHEMA=apt
+      - PORT=8001
     restart: always
