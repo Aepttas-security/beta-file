@@ -2,7 +2,7 @@ export interface AnalysisResult {
   riskScore: number;
   riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
   status: 'Safe' | 'Suspicious' | 'Malicious';
-  threatType: 'spyware' | 'ransomware' | 'adware' | 'banker trojan' | null;
+  threatType: 'spyware' | 'ransomware' | 'adware' | 'banker trojan' | 'executable threat' | 'script threat' | 'macro threat' | string | null;
   dangerousPermissions: string[];
   confidenceScore: number;
   recommendedAction: string;

@@ -71,6 +71,16 @@ function App() {
         console.log('[App] Session check retrieved token:', token);
         if (token) {
           console.log('[Auth] Active session token found. Auto-routing to Dashboard.');
+          // Sync keys to TokenStorage using updated Storage wrappers
+          try {
+            await Storage.setAuthToken(token);
+            const profile = await Storage.getUserProfile();
+            if (profile) {
+              await Storage.setUserProfile(profile);
+            }
+          } catch (e) {
+            console.warn('[App] Failed to sync session keys on mount:', e);
+          }
           const userProfile = await Storage.getUserProfile();
           if (userProfile && userProfile.user_id) {
             const backendCheck = await ParentalRepository.checkParentLinked(userProfile.user_id);

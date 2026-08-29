@@ -120,6 +120,57 @@ export const ApkScanner = {
       };
     }
 
+    // Check non-APK high-risk extension profiles
+    const ext = lowerName.substring(lowerName.lastIndexOf('.'));
+    
+    // 1. High-risk executables and binary installers (.exe, .scr, .msi, .dll)
+    if (['.exe', '.scr', '.msi', '.dll'].includes(ext)) {
+      return {
+        permissions: [
+          'android.permission.SYSTEM_ALERT_WINDOW',
+          'android.permission.WRITE_EXTERNAL_STORAGE',
+          'android.permission.RECEIVE_BOOT_COMPLETED',
+          'android.permission.REQUEST_INSTALL_PACKAGES',
+          'android.permission.INTERNET',
+        ],
+      };
+    }
+
+    // 2. High-risk script payloads (.bat, .cmd, .vbs, .js, .ps1, .hta)
+    if (['.bat', '.cmd', '.vbs', '.js', '.ps1', '.hta'].includes(ext)) {
+      return {
+        permissions: [
+          'android.permission.BIND_ACCESSIBILITY_SERVICE',
+          'android.permission.SYSTEM_ALERT_WINDOW',
+          'android.permission.REQUEST_INSTALL_PACKAGES',
+          'android.permission.INTERNET',
+        ],
+      };
+    }
+
+    // 3. Macro documents & Java archives (.docm, .xlsm, .jar)
+    if (['.docm', '.xlsm', '.jar'].includes(ext)) {
+      return {
+        permissions: [
+          'android.permission.WRITE_EXTERNAL_STORAGE',
+          'android.permission.READ_EXTERNAL_STORAGE',
+          'android.permission.REQUEST_INSTALL_PACKAGES',
+          'android.permission.INTERNET',
+        ],
+      };
+    }
+
+    // 4. Disk images and shortcuts (.iso, .img, .lnk)
+    if (['.iso', '.img', '.lnk'].includes(ext)) {
+      return {
+        permissions: [
+          'android.permission.SYSTEM_ALERT_WINDOW',
+          'android.permission.WRITE_EXTERNAL_STORAGE',
+          'android.permission.INTERNET',
+        ],
+      };
+    }
+
     // Default Safe
     return {
       permissions: [
