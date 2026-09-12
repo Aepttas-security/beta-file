@@ -25,7 +25,7 @@ const getHostFromExpo = (): string | null => {
 
 const expoIp = getHostFromExpo();
 const DEFAULT_HOST = expoIp || (Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1');
-const DEFAULT_PORT = '8000';
+const DEFAULT_PORT = '8001';
 
 let customBaseUrl: string | null = null;
 
@@ -34,6 +34,13 @@ export const getApiBaseUrl = (): string => {
     return customBaseUrl;
   }
   return `http://${DEFAULT_HOST}:${DEFAULT_PORT}`;
+};
+
+export const getMalwareBaseUrl = (): string => {
+  if (customBaseUrl) {
+    return customBaseUrl;
+  }
+  return `http://${DEFAULT_HOST}:8001`;
 };
 
 export const getAuthBaseUrl = (): string => {
@@ -48,6 +55,13 @@ export const getGeoBaseUrl = (): string => {
     return `${customBaseUrl}/api/v1/geolocation`;
   }
   return `http://${DEFAULT_HOST}:8003/api/v1/geolocation`;
+};
+
+export const getVulnBaseUrl = (): string => {
+  if (customBaseUrl) {
+    return `${customBaseUrl}/api`;
+  }
+  return `http://${DEFAULT_HOST}:8000/api`;
 };
 
 export const setApiBaseUrl = (url: string) => {

@@ -13,8 +13,20 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy import Column, BigInteger, String, Boolean, DateTime, text, select
 from sqlalchemy.dialects.postgresql import UUID
-from passlib.context import CryptContext
+import bcrypt
 import uvicorn
+
+def hash_password(password: str) -> str:
+    pwd_bytes = password.encode('utf-8')[:72]
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
+
+def verify_password(password: str, hashed: str) -> bool:
+    try:
+        pwd_bytes = password.encode('utf-8')[:72]
+        return bcrypt.checkpw(pwd_bytes, hashed.encode('utf-8'))
+    except Exception:
+        return False
 
 # 1. Database Connection URL
 DATABASE_URL = "postgresql+asyncpg://apt_parentctrl_app:Par%40intern_aepttas@100.112.49.39:5432/aepttas_xdr"
@@ -26,8 +38,6 @@ connect_args = {
 engine = create_async_engine(DATABASE_URL, connect_args=connect_args, echo=True)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # 2. Table Definition — mapped to the REAL apt.apt_users_b schema
 class AptUserB(Base):
@@ -96,7 +106,7 @@ async def register(payload: dict):
         first_name = parts[0] if parts else name
         last_name  = parts[1] if len(parts) > 1 else ""
 
-        hashed = pwd_context.hash(password)
+        hashed = hash_password(password)
         now = datetime.utcnow()
 
         new_user = AptUserB(
@@ -138,7 +148,7 @@ async def login(payload: dict):
         result = await db.execute(query)
         user = result.scalar_one_or_none()
 
-        if not user or not pwd_context.verify(password, user.password_hash):
+        if not user or not verify_password(password, user.password_hash):
             print(f"[PostgreSQL DENIED] Login failed for {email} — wrong credentials.")
             raise HTTPException(status_code=401, detail="Invalid email or password.")
 

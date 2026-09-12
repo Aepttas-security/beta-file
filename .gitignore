@@ -99,3 +99,9 @@ yarn-error.log
 
 # SQLite local dev database
 auth.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
