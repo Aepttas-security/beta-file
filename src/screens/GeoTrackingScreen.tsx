@@ -14,6 +14,8 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import { colors } from '../styles/theme';
 import { Icon } from '../components/Icon';
 
+import { GeolocationRepository } from '../data/repository';
+
 interface GeoRequest {
   ip: string;
   threatLevel: 'Safe' | 'Suspicious' | 'High Risk';
@@ -50,6 +52,36 @@ interface NearbyPlace {
   distance: string;
 }
 
+const mapBackendRecordToGeoRequest = (rec: any): GeoRequest => {
+  const lat = typeof rec.latitude === 'number' ? rec.latitude : parseFloat(rec.latitude) || 0;
+  const lon = typeof rec.longitude === 'number' ? rec.longitude : parseFloat(rec.longitude) || 0;
+
+  const xPercent = Math.max(0.08, Math.min(0.92, (lon + 180) / 360));
+  const yPercent = Math.max(0.1, Math.min(0.9, (90 - lat) / 180));
+
+  let threatLevel: 'Safe' | 'Suspicious' | 'High Risk' = 'Safe';
+  if (rec.is_spoofed && (rec.spoof_confidence === 'high' || rec.is_mock_location)) {
+    threatLevel = 'High Risk';
+  } else if (rec.is_spoofed || rec.spoof_confidence === 'medium') {
+    threatLevel = 'Suspicious';
+  }
+
+  return {
+    ip: rec.ip || `192.168.1.${Math.abs(Math.floor(lat * 10)) % 254 + 1}`,
+    threatLevel,
+    country: rec.country || 'Detected Region',
+    city: rec.city || 'Live GPS Node',
+    isp: rec.provider || rec.isp || 'Mobile Cellular / GPS',
+    latency: `${Math.floor(Math.random() * 40) + 20}ms`,
+    timeAgo: rec.timestamp ? 'Live' : '5m ago',
+    timeCategory: '1H',
+    xPercent,
+    yPercent,
+    latitude: `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}`,
+    longitude: `${Math.abs(lon).toFixed(4)}° ${lon >= 0 ? 'E' : 'W'}`,
+  };
+};
+
 const getNearbyPlaces = (ip: string): NearbyPlace[] => {
   if (ip.startsWith('185.')) {
     return [
@@ -82,8 +114,84 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
   const { colors, mode, toggleTheme } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
 
+  const [requestsList, setRequestsList] = useState<GeoRequest[]>(allRequests);
   const [selectedFilter, setSelectedFilter] = useState<'All' | '1H' | '24H' | '7D'>('All');
   const [selectedRequest, setSelectedRequest] = useState<GeoRequest | null>(allRequests[1]); // Default to Amsterdam
+  const [dynamicNearbyPlaces, setDynamicNearbyPlaces] = useState<NearbyPlace[]>([]);
+
+  // Fetch live backend geolocation data
+  useEffect(() => {
+    let isMounted = true;
+    const fetchGeoData = async () => {
+      try {
+        const [liveRes, historyRes] = await Promise.allSettled([
+          GeolocationRepository.getCurrentLocation(),
+          GeolocationRepository.getLocationHistory(),
+        ]);
+
+        const fetchedRequests: GeoRequest[] = [];
+
+        if (liveRes.status === 'fulfilled' && liveRes.value?.data) {
+          fetchedRequests.push(mapBackendRecordToGeoRequest(liveRes.value.data));
+        }
+
+        if (historyRes.status === 'fulfilled' && Array.isArray(historyRes.value) && historyRes.value.length > 0) {
+          historyRes.value.forEach((item: any) => {
+            fetchedRequests.push(mapBackendRecordToGeoRequest(item));
+          });
+        }
+
+        if (isMounted && fetchedRequests.length > 0) {
+          const combined = [...fetchedRequests, ...allRequests];
+          setRequestsList(combined);
+          setSelectedRequest(combined[0]);
+        }
+      } catch (err) {
+        console.log('Using default geolocation data:', err);
+      }
+    };
+
+    fetchGeoData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Fetch nearby places dynamically for the selected request
+  useEffect(() => {
+    let isMounted = true;
+    if (!selectedRequest) return;
+
+    const lat = parseFloat(selectedRequest.latitude);
+    const lon = parseFloat(selectedRequest.longitude);
+
+    if (!isNaN(lat) && !isNaN(lon)) {
+      GeolocationRepository.getNearbyPlaces({ latitude: lat, longitude: lon, radius_km: 10 })
+        .then((places) => {
+          if (isMounted && places && places.length > 0) {
+            setDynamicNearbyPlaces(
+              places.map((p: any) => ({
+                name: p.place_name || p.name || 'Local Network Node',
+                distance: `${p.distance_km || p.distance || 1.5} km`,
+              }))
+            );
+          } else if (isMounted) {
+            setDynamicNearbyPlaces(getNearbyPlaces(selectedRequest.ip));
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setDynamicNearbyPlaces(getNearbyPlaces(selectedRequest.ip));
+          }
+        });
+    } else {
+      setDynamicNearbyPlaces(getNearbyPlaces(selectedRequest.ip));
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedRequest]);
 
   // Radar rotation animation
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -135,7 +243,7 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
     outputRange: [0.8, 0],
   });
 
-  const filteredRequests = allRequests.filter(req => {
+  const filteredRequests = requestsList.filter(req => {
     if (selectedFilter === 'All') return true;
     if (selectedFilter === '1H') return req.timeCategory === '1H';
     if (selectedFilter === '24H') return req.timeCategory === '1H' || req.timeCategory === '24H';
@@ -448,7 +556,7 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
           <View style={styles.cardDivider} />
           <Text style={styles.detailsLabel}>NEARBY NETWORK PLACES</Text>
           <View style={styles.nearbyContainer}>
-            {getNearbyPlaces(selectedRequest.ip).map((place, idx) => (
+            {(dynamicNearbyPlaces.length > 0 ? dynamicNearbyPlaces : getNearbyPlaces(selectedRequest.ip)).map((place, idx) => (
               <View key={idx} style={styles.nearbyPlaceRow}>
                 <View style={styles.nearbyPlaceLeft}>
                   <Icon name="location-on" color={colors.purpleAccent} size={14} />

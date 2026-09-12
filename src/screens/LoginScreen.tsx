@@ -9,6 +9,7 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
@@ -123,37 +124,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.logoContainer}>
-          {/* Custom 3D-like Shield Logo using SVG */}
-          <Svg width={120} height={120} viewBox="0 0 100 100">
-            <Defs>
-              <SvgLinearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#8b5cf6" />
-                <Stop offset="100%" stopColor="#2563eb" />
-              </SvgLinearGradient>
-            </Defs>
-            <Path
-              d="M50,10 L85,22 V48 C85,69.5 70,89 50,94 C30,89 15,69.5 15,48 V22 L50,10 Z"
-              fill="url(#shieldGrad)"
-            />
-            {/* Inner shield contour */}
-            <Path
-              d="M50,16 L79,26 V48 C79,66.2 66.8,82.5 50,87.2 C33.2,82.5 21,66.2 21,48 V26 L50,16 Z"
-              fill="#0b0f19"
-              opacity={0.85}
-            />
-            {/* Tech line detail */}
-            <Path
-              d="M50,22 L73,30.5 V48 C73,62.8 63,76.5 50,80.5 C37,76.5 27,62.8 27,48 V30.5 L50,22 Z"
-              fill="none"
-              stroke="#06b6d4"
-              strokeWidth="2"
-            />
-            {/* Core icon */}
-            <Path
-              d="M45,60 L35,50 L39,46 L45,52 L61,36 L65,40 Z"
-              fill={colors.text}
-            />
-          </Svg>
+          <Image
+            source={require('../assets/app_logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
 
         {/* Title */}
@@ -344,11 +319,15 @@ const getStyles = (colors: any) => StyleSheet.create({
     alignSelf: 'center',
   },
   logoContainer: {
-    marginTop: 40,
-    height: 120,
-    width: 120,
+    marginTop: 36,
+    height: 110,
+    width: 110,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   titleContainer: {
     flexDirection: 'row',

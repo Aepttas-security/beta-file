@@ -2,6 +2,7 @@ import { AppState, AppStateStatus, Platform } from 'react-native';
 import { AutoScanService, ScannedFileMeta } from './AutoScanService';
 import { ScannerRepository } from '../data/repository';
 import { ApkScanner } from './ApkScanner';
+import { getUnifiedBaseUrl } from '../config/apiConfig';
 
 export type IdleScanStatus = 'active' | 'idle-waiting' | 'scanning' | 'paused' | 'completed' | 'failed';
 
@@ -147,10 +148,10 @@ class IdleScanManagerClass {
 
   private async checkBackendOnline(): Promise<boolean> {
     try {
-      const BASE_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8001' : 'http://localhost:8001';
+      const BASE_URL = getUnifiedBaseUrl();
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 2000);
-      const res = await fetch(`${BASE_URL}/health`, { signal: controller.signal });
+      const res = await fetch(`${BASE_URL}/api/health`, { signal: controller.signal });
       clearTimeout(timeout);
       return res.ok;
     } catch {

@@ -61,7 +61,8 @@ export function useApkScanner() {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);
-      const res = await fetch(`${ScannerRepository ? (ScannerRepository as any).getBaseUrl?.() || require('../config/apiConfig').getApiBaseUrl() : 'http://127.0.0.1:8000'}/api/dashboard`, { signal: controller.signal });
+      const baseUrl = require('../config/apiConfig').getUnifiedBaseUrl();
+      const res = await fetch(`${baseUrl}/api/dashboard`, { signal: controller.signal });
       clearTimeout(timeout);
       const available = res.ok;
       setBackendAvailable(available);

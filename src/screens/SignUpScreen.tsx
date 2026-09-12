@@ -8,6 +8,7 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, {
@@ -133,31 +134,11 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
       >
         {/* Logo */}
         <View style={styles.logoContainer}>
-          <Svg width={90} height={90} viewBox="0 0 100 100">
-            <Defs>
-              <SvgLinearGradient id="sgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#06b6d4" />
-                <Stop offset="100%" stopColor="#8b5cf6" />
-              </SvgLinearGradient>
-            </Defs>
-            <Path
-              d="M50,10 L85,22 V48 C85,69.5 70,89 50,94 C30,89 15,69.5 15,48 V22 L50,10 Z"
-              fill="url(#sgGrad)"
-            />
-            <Path
-              d="M50,16 L79,26 V48 C79,66.2 66.8,82.5 50,87.2 C33.2,82.5 21,66.2 21,48 V26 L50,16 Z"
-              fill="#0b0f19"
-              opacity={0.85}
-            />
-            <Path
-              d="M50,22 L73,30.5 V48 C73,62.8 63,76.5 50,80.5 C37,76.5 27,62.8 27,48 V30.5 L50,22 Z"
-              fill="none"
-              stroke="#8b5cf6"
-              strokeWidth="2"
-            />
-            {/* Plus icon = create account */}
-            <Path d="M47,36 L47,52 M39,44 L55,44" stroke={colors.text} strokeWidth="4" strokeLinecap="round" />
-          </Svg>
+          <Image
+            source={require('../assets/app_logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
 
         {/* Header */}
@@ -530,6 +511,10 @@ const getStyles = (colors: any) => StyleSheet.create({
     width: 90,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   titleText: {
     fontSize: 22,

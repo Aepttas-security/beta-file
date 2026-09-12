@@ -10,6 +10,7 @@ import {
   ToastAndroid,
   Platform,
   Alert,
+  Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Circle, Line, Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
@@ -442,22 +443,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <View style={styles.headerLeft}>
             {/* Small Logo Container */}
             <View style={styles.miniLogo}>
-              <Svg width={28} height={28} viewBox="0 0 100 100">
-                <Defs>
-                  <SvgLinearGradient id="miniShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <Stop offset="0%" stopColor="#8b5cf6" />
-                    <Stop offset="100%" stopColor="#2563eb" />
-                  </SvgLinearGradient>
-                </Defs>
-                <Path
-                  d="M50,10 L85,22 V48 C85,69.5 70,89 50,94 C30,89 15,69.5 15,48 V22 L50,10 Z"
-                  fill="url(#miniShieldGrad)"
-                />
-                <Path
-                  d="M45,60 L35,50 L39,46 L45,52 L61,36 L65,40 Z"
-                  fill={colors.text}
-                />
-              </Svg>
+              <Image
+                source={require('../assets/app_logo.png')}
+                style={styles.miniLogoImage}
+                resizeMode="contain"
+              />
             </View>
             <View style={styles.headerTitleContainer}>
               <View style={styles.titleBadgeRow}>
@@ -1041,6 +1031,11 @@ const getStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.cardBackground,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  miniLogoImage: {
+    width: 32,
+    height: 32,
   },
   headerTitleContainer: {
     marginLeft: 12,

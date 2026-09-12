@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getApiBaseUrl } from '../config/apiConfig';
+import { getCallerBaseUrl } from '../config/apiConfig';
 import { Storage } from '../utils/storage';
 
 export interface BlockedNumber {
@@ -63,7 +63,7 @@ export function useCallerIntelligence(childId: string = '1') {
 
   const fetchFromBackendDB = useCallback(async () => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/caller-intel/${childId}`);
+      const res = await fetch(`${getCallerBaseUrl()}/api/caller-intel/${childId}`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.blockedNumbers) && data.blockedNumbers.length > 0) {
@@ -121,7 +121,7 @@ export function useCallerIntelligence(childId: string = '1') {
     saveToStorage({ blockedNumbers: updated, spamCalls, reportHistory, callHistory, autoBlockEnabled, notificationsEnabled });
 
     try {
-      await fetch(`${getApiBaseUrl()}/api/caller-intel/${childId}/blocked-numbers`, {
+      await fetch(`${getCallerBaseUrl()}/api/caller-intel/${childId}/blocked-numbers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ number, name, reason }),
@@ -138,7 +138,7 @@ export function useCallerIntelligence(childId: string = '1') {
     saveToStorage({ blockedNumbers: updated, spamCalls, reportHistory, callHistory, autoBlockEnabled, notificationsEnabled });
 
     try {
-      await fetch(`${getApiBaseUrl()}/api/caller-intel/${childId}/blocked-numbers/${encodeURIComponent(number)}`, {
+      await fetch(`${getCallerBaseUrl()}/api/caller-intel/${childId}/blocked-numbers/${encodeURIComponent(number)}`, {
         method: 'DELETE',
       });
       await fetchFromBackendDB();
@@ -160,7 +160,7 @@ export function useCallerIntelligence(childId: string = '1') {
     saveToStorage({ blockedNumbers, spamCalls, reportHistory: updatedReports, callHistory, autoBlockEnabled, notificationsEnabled });
 
     try {
-      await fetch(`${getApiBaseUrl()}/api/caller-intel/${childId}/report-call`, {
+      await fetch(`${getCallerBaseUrl()}/api/caller-intel/${childId}/report-call`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ number, type, description }),
@@ -176,7 +176,7 @@ export function useCallerIntelligence(childId: string = '1') {
     saveToStorage({ blockedNumbers, spamCalls, reportHistory, callHistory, autoBlockEnabled: val, notificationsEnabled });
 
     try {
-      await fetch(`${getApiBaseUrl()}/api/caller-intel/${childId}/settings`, {
+      await fetch(`${getCallerBaseUrl()}/api/caller-intel/${childId}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ auto_block_enabled: val }),
@@ -192,7 +192,7 @@ export function useCallerIntelligence(childId: string = '1') {
     saveToStorage({ blockedNumbers, spamCalls, reportHistory, callHistory, autoBlockEnabled, notificationsEnabled: val });
 
     try {
-      await fetch(`${getApiBaseUrl()}/api/caller-intel/${childId}/settings`, {
+      await fetch(`${getCallerBaseUrl()}/api/caller-intel/${childId}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notifications_enabled: val }),

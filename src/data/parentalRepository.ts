@@ -1,8 +1,8 @@
 import { Platform } from 'react-native';
-import { getApiBaseUrl } from '../config/apiConfig';
+import { getParentalBaseUrl } from '../config/apiConfig';
 import { Storage } from '../utils/storage';
 
-const getBaseUrl = () => getApiBaseUrl();
+const getBaseUrl = () => getParentalBaseUrl();
 
 const originalFetch = globalThis.fetch;
 const fetch = async (url: string | Request, options: any = {}) => {

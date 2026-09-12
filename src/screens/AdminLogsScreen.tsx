@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { Icon } from '../components/Icon';
+import { getUnifiedBaseUrl } from '../config/apiConfig';
 
 interface ErrorLog {
   id: number;
@@ -32,7 +33,7 @@ export const AdminLogsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) =>
   const [filter, setFilter] = useState<'ALL' | 'CRITICAL' | 'ERROR' | 'WARNING' | 'RECTIFIED'>('ALL');
   const [expandedLogId, setExpandedLogId] = useState<number | null>(null);
 
-  const API_BASE = 'http://192.168.39.211:8002/api/admin';
+  const API_BASE = `${getUnifiedBaseUrl()}/api/admin`;
 
   const fetchLogs = async () => {
     setLoading(true);

@@ -104,4 +104,16 @@ auth.db
 __pycache__/
 *.py[cod]
 *$py.class
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+.env
+!.env.example
+!backend/malware/.env
+
+
 

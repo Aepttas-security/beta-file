@@ -8,6 +8,8 @@
     "lint": "eslint .",
     "start": "node scripts/start-backends.js && react-native start",
     "start:backends": "node scripts/start-backends.js",
+    "stop": "node scripts/stop-backends.js",
+    "stop:backends": "node scripts/stop-backends.js",
     "test": "jest"
   },
   "dependencies": {

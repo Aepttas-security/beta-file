@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
+  Image,
 } from 'react-native';
 import Svg, { Circle, Path, G } from 'react-native-svg';
 import { useAppTheme } from '../contexts/ThemeContext';
@@ -38,6 +39,16 @@ export const DeviceRoleSelectionScreen: React.FC<DeviceRoleSelectionScreenProps>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* App Branding Logo */}
+        <View style={styles.brandContainer}>
+          <Image
+            source={require('../assets/app_logo.png')}
+            style={styles.brandLogo}
+            resizeMode="contain"
+          />
+          <Text style={styles.brandSubtitle}>AEPTTAS SHIELD</Text>
+        </View>
+
         {/* Main Title */}
         <Text style={styles.title}>Whose device is this?</Text>
 
@@ -125,18 +136,34 @@ const getStyles = (colors: any) =>
     },
     scrollContent: {
       paddingHorizontal: 24,
-      paddingTop: 20,
+      paddingTop: 10,
       paddingBottom: 40,
       maxWidth: 480,
       width: '100%',
       alignSelf: 'center',
+    },
+    brandContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 16,
+    },
+    brandLogo: {
+      width: 72,
+      height: 72,
+      marginBottom: 6,
+    },
+    brandSubtitle: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.cyanAccent || '#06b6d4',
+      letterSpacing: 2,
     },
     title: {
       color: colors.text,
       fontSize: 26,
       fontWeight: '800',
       textAlign: 'center',
-      marginBottom: 32,
+      marginBottom: 28,
       letterSpacing: -0.5,
     },
     roleCard: {

@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { getApiBaseUrl, getGeoBaseUrl } from '../config/apiConfig';
+import { getMalwareBaseUrl, getGeoBaseUrl } from '../config/apiConfig';
 
 export interface DashboardMetrics {
   total_scanned: number;
@@ -8,7 +8,7 @@ export interface DashboardMetrics {
   device_security_score: number;
 }
 
-const getBaseUrl = () => getApiBaseUrl();
+const getBaseUrl = () => getMalwareBaseUrl();
 const getGeoUrl = () => getGeoBaseUrl();
 
 const originalFetch = globalThis.fetch;
