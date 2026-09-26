@@ -30,6 +30,7 @@ interface DashboardScreenProps {
   onOpenParentalControl: () => void;
   onOpenMalwareAnalysis: () => void;
   onOpenCallerIntelligence: () => void;
+  onOpenCallDetection?: () => void;
   onOpenVulnerabilityDetection: () => void;
   onOpenChildDashboard: () => void;
 }

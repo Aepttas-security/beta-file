@@ -15,6 +15,7 @@ import { GeoTrackingScreen } from './src/screens/GeoTrackingScreen';
 import { ParentalControlScreen } from './src/screens/ParentalControlScreen';
 import { MalwareAnalysisScreen } from './src/screens/MalwareAnalysisScreen';
 import { CallerIntelligenceScreen } from './src/screens/CallerIntelligenceScreen';
+import { CallDetectionScreen } from './src/screens/CallDetectionScreen';
 import { ChildLinkScreen } from './src/screens/ChildLinkScreen';
 import { ChildModeScreen } from './src/screens/ChildModeScreen';
 import { VulnerabilityDetectionScreen } from './src/screens/VulnerabilityDetectionScreen';
@@ -32,6 +33,7 @@ type ScreenName =
   | 'ParentalControl'
   | 'MalwareAnalysis'
   | 'CallerIntelligence'
+  | 'CallDetection'
   | 'ChildLink'
   | 'ChildPermissions'
   | 'ChildMode'
@@ -248,6 +250,8 @@ function App() {
         return <MalwareAnalysisScreen onBack={goBack} />;
       case 'CallerIntelligence':
         return <CallerIntelligenceScreen onBack={goBack} />;
+      case 'CallDetection':
+        return <CallDetectionScreen onBack={goBack} />;
       case 'VulnerabilityDetection':
         return <VulnerabilityDetectionScreen onBack={goBack} />;
       case 'ChildDashboard':
