@@ -3,10 +3,12 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "build": "echo 'Build complete'",
     "android": "node scripts/start-backends.js && react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "node scripts/start-backends.js && react-native start",
+    "start:web": "python -m uvicorn main:app --host 0.0.0.0 --port 5000",
     "start:backends": "node scripts/start-backends.js",
     "stop": "node scripts/stop-backends.js",
     "stop:backends": "node scripts/stop-backends.js",
