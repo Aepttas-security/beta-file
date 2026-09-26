@@ -1,10 +1,14 @@
 # Add project specific ProGuard rules here.
-# By default, the flags in this file are appended to flags specified
-# in /usr/local/Cellar/android-sdk/24.3.3/tools/proguard/proguard-android.txt
-# You can edit the include path and order by changing the proguardFiles
-# directive in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
 
-# Add any project specific keep options here:
+# Keep Aepttas Shield native classes, Room DB, services, workers, and receivers
+-keep class com.aepttas.shield.** { *; }
+-dontwarn com.aepttas.shield.**
+
+# Keep React Native NativeModules
+-keepclassmembers class * extends com.facebook.react.bridge.ReactContextBaseJavaModule {
+    public <methods>;
+}
+
+# Keep Gson & Room
+-keep class com.google.gson.** { *; }
+-keep class androidx.room.** { *; }
