@@ -55,9 +55,10 @@ jobs:
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
-        if: always()
+        if: success()
         with:
           tag_name: latest-build
+          target_commitish: ${{ github.sha }}
           name: "Aepttas Shield App (Latest Release APK)"
           body: |
             ### 🛡️ Aepttas Shield Android App
