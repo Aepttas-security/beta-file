@@ -64,7 +64,7 @@ jobs:
             Direct downloadable APK for your team.
             
             **Download APK directly below:**
-            - ⬇️ **[app-release.apk](https://github.com/Aepttas-security/latest-beta-file/releases/download/latest-build/app-release.apk)**
+            - ⬇️ **[app-release.apk](https://github.com/${{ github.repository }}/releases/download/latest-build/app-release.apk)**
           files: |
             android/app/build/outputs/apk/release/app-release.apk
           draft: false

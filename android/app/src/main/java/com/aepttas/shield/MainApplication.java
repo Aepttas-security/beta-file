@@ -63,7 +63,11 @@ public class MainApplication extends Application implements ReactApplication {
     }
     
     // 🛡️ Schedule Shield Intelligence Tasks
-    WorkScheduler.schedulePeriodicTasks(this);
+    try {
+      WorkScheduler.schedulePeriodicTasks(this);
+    } catch (Throwable t) {
+      android.util.Log.e("MainApplication", "Error scheduling WorkManager tasks: " + t.getMessage());
+    }
   }
 
   @Override
