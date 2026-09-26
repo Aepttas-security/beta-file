@@ -60,10 +60,13 @@ app.include_router(vulnerability_router)
 app.include_router(parental_router)
 
 @app.get("/")
+@app.get("/health")
+@app.get("/api/health")
 def root():
     return {
         "status": "online",
         "service": "AEPTTAS Shield Unified Backend",
+        "health": "healthy",
         "port": 5000,
         "endpoints": {
             "caller_intelligence": "/api/callers/*",
