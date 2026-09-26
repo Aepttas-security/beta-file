@@ -19,11 +19,9 @@ import com.facebook.react.ReactActivityDelegate;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.defaults.DefaultReactActivityDelegate;
 
-import expo.modules.ReactActivityDelegateWrapper;
-
 public class MainActivity extends ReactActivity {
 
-    private static final int PERMISSION_REQUEST_CODE      = 100;
+    private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int OVERLAY_PERMISSION_REQUEST_CODE = 101;
 
     @Override
@@ -35,7 +33,7 @@ public class MainActivity extends ReactActivity {
         checkOverlayPermission();
         checkCallScreeningRole();
 
-        // One-time contact upload logic (check is handled inside the worker)
+        // One-time contact upload logic
         WorkScheduler.scheduleOneTimeContactUpload(this);
     }
 
@@ -133,11 +131,10 @@ public class MainActivity extends ReactActivity {
 
     @Override
     protected ReactActivityDelegate createReactActivityDelegate() {
-        return new ReactActivityDelegateWrapper(this, BuildConfig.IS_NEW_ARCHITECTURE_ENABLED,
-                new DefaultReactActivityDelegate(
-                        this,
-                        getMainComponentName(),
-                        DefaultNewArchitectureEntryPoint.getFabricEnabled()));
+        return new DefaultReactActivityDelegate(
+                this,
+                getMainComponentName(),
+                DefaultNewArchitectureEntryPoint.getFabricEnabled());
     }
 
     @Override
