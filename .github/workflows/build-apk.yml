@@ -1,4 +1,4 @@
-﻿name: Build & Release Android APK
+name: Build & Release Android APK
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Set up JDK 17
@@ -33,6 +33,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
+          cache: 'gradle'
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
@@ -63,10 +64,11 @@ jobs:
             Direct downloadable APK for your team.
             
             **Download APK directly below:**
-            - ⬇️ **[app-release.apk](https://github.com/VK-JPG-cmd/for-deploy/releases/download/latest-build/app-release.apk)**
+            - ⬇️ **[app-release.apk](https://github.com/Aepttas-security/latest-beta-file/releases/download/latest-build/app-release.apk)**
           files: |
             android/app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false
+          overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
