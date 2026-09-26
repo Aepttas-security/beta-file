@@ -29,12 +29,20 @@ public class MainActivity extends ReactActivity {
         setTheme(R.style.AppTheme);
         super.onCreate(null);
 
-        requestAllPermissions();
-        checkOverlayPermission();
-        checkCallScreeningRole();
+        try {
+            requestAllPermissions();
+            checkOverlayPermission();
+            checkCallScreeningRole();
+        } catch (Exception e) {
+            Log.e("MainActivity", "Error during initialization/permissions: " + e.getMessage());
+        }
 
         // One-time contact upload logic
-        WorkScheduler.scheduleOneTimeContactUpload(this);
+        try {
+            WorkScheduler.scheduleOneTimeContactUpload(this);
+        } catch (Exception e) {
+            Log.e("MainActivity", "WorkScheduler contact upload error: " + e.getMessage());
+        }
     }
 
     private void checkCallScreeningRole() {
@@ -55,16 +63,18 @@ public class MainActivity extends ReactActivity {
     }
 
     private void requestAllPermissions() {
-        String[] permissions = {
-                Manifest.permission.READ_PHONE_STATE,
-                Manifest.permission.READ_CALL_LOG,
-                Manifest.permission.READ_CONTACTS,
-                Manifest.permission.CALL_PHONE,
-                Manifest.permission.POST_NOTIFICATIONS,
-        };
+        java.util.ArrayList<String> permissionsList = new java.util.ArrayList<>();
+        permissionsList.add(Manifest.permission.READ_PHONE_STATE);
+        permissionsList.add(Manifest.permission.READ_CALL_LOG);
+        permissionsList.add(Manifest.permission.READ_CONTACTS);
+        permissionsList.add(Manifest.permission.CALL_PHONE);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionsList.add(Manifest.permission.POST_NOTIFICATIONS);
+        }
 
         java.util.ArrayList<String> toRequest = new java.util.ArrayList<>();
-        for (String p : permissions) {
+        for (String p : permissionsList) {
             if (ContextCompat.checkSelfPermission(this, p)
                     != PackageManager.PERMISSION_GRANTED) {
                 toRequest.add(p);
@@ -104,7 +114,11 @@ public class MainActivity extends ReactActivity {
             for (int i = 0; i < permissions.length; i++) {
                 if (permissions[i].equals(Manifest.permission.READ_CONTACTS)
                         && grantResults[i] == PackageManager.PERMISSION_GRANTED) {
-                    WorkScheduler.forceContactUpload(this);
+                    try {
+                        WorkScheduler.forceContactUpload(this);
+                    } catch (Exception e) {
+                        Log.e("MainActivity", "Failed forceContactUpload: " + e.getMessage());
+                    }
                     break;
                 }
             }
@@ -126,7 +140,7 @@ public class MainActivity extends ReactActivity {
 
     @Override
     protected String getMainComponentName() {
-        return "main";
+        return "AepttasShield";
     }
 
     @Override
