@@ -116,4 +116,22 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+    implementation 'androidx.core:core:1.12.0'
+    
+    // Custom dependencies for Call Screening & Intelligence
+    implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.28'
+
+    // Room Database
+    def room_version = "2.6.1"
+    implementation "androidx.room:room-runtime:$room_version"
+    annotationProcessor "androidx.room:room-compiler:$room_version"
+    
+    // JSON processing
+    implementation 'com.google.code.gson:gson:2.10.1'
+
+    // WorkManager
+    def work_version = "2.9.0"
+    implementation "androidx.work:work-runtime:$work_version"
 }
