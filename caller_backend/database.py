@@ -26,7 +26,14 @@ DATABASE_URL = os.getenv(
     f"postgresql+psycopg2://{DB_USER}:{encoded_password}@{TAILSCALE_IP}:{DB_PORT}/{DB_NAME}?sslmode=require"
 )
 
+# Render & cloud DB URL normalization for psycopg2 driver
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
+elif DATABASE_URL.startswith("postgresql://") and "+psycopg" not in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+
 # Connect args with timeout and SSL settings for cloud database (Render / AWS)
+
 connect_args = {
     "connect_timeout": 5,
     "sslmode": "require",
