@@ -233,6 +233,7 @@ function App() {
             onOpenParentalControl={() => navigateTo('ParentalControl')}
             onOpenMalwareAnalysis={() => navigateTo('MalwareAnalysis')}
             onOpenCallerIntelligence={() => navigateTo('CallerIntelligence')}
+            onOpenCallDetection={() => navigateTo('CallDetection')}
             onOpenVulnerabilityDetection={() => navigateTo('VulnerabilityDetection')}
             onOpenChildDashboard={() => navigateTo('ChildDashboard')}
           />
