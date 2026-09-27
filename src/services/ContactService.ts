@@ -91,3 +91,44 @@ export const getContactName = (
   const contact = findContactByNumber(contacts, phoneNumber);
   return contact ? contact.displayName : null;
 };
+
+export const syncContactsWithBackend = async (): Promise<{ success: boolean; count: number; message: string }> => {
+  try {
+    if (Platform.OS === 'android') {
+      const callDetection = require('../native/CallDetection').default;
+      const res = await callDetection.syncContacts();
+      if (res && res.success) {
+        return { success: true, count: 1, message: res.message || 'Contacts synced successfully' };
+      }
+    }
+
+    const contacts = await getLocalContacts();
+    if (contacts.length === 0) {
+      return { success: false, count: 0, message: 'No contacts found or permission denied' };
+    }
+
+    const { getCallerBaseUrl } = require('../config/apiConfig');
+    const payload = contacts.map(c => ({
+      caller_name: c.displayName,
+      phone_number: c.phoneNumbers[0]?.number || ''
+    })).filter(c => c.phone_number);
+
+    const resp = await fetch(`${getCallerBaseUrl()}/api/callers/upload`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'shield-prod-key-2024'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (resp.ok) {
+      return { success: true, count: payload.length, message: `Synced ${payload.length} contacts successfully` };
+    } else {
+      return { success: false, count: 0, message: `Server returned HTTP ${resp.status}` };
+    }
+  } catch (error: any) {
+    console.error('syncContactsWithBackend error:', error);
+    return { success: false, count: 0, message: error?.message || 'Contact sync failed' };
+  }
+};

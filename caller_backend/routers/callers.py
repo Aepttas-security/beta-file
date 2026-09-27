@@ -24,21 +24,100 @@ def get_audit(extra=None):
         d.update(extra)
     return d
 
+def evaluate_tri_layer(num: str, caller_name: str, total_reports: int, is_spam: bool, is_blocked: bool):
+    clean = ''.join(filter(lambda x: x.isdigit() or x == '+', num or ""))
+    digits_only = ''.join(filter(str.isdigit, clean))
+    
+    # Layer 1: Digital DNA Pattern Matching
+    is_spoofed_or_bot = False
+    dna_pattern = "Standard Format"
+    dna_score = 0
+    
+    if digits_only and len(digits_only) < 7:
+        is_spoofed_or_bot = True
+        dna_pattern = f"Machine-Generated Shortcode ({len(digits_only)} digits)"
+        dna_score = 85
+    elif any(d * 5 in digits_only for d in "0123456789"):
+        is_spoofed_or_bot = True
+        dna_pattern = "Repetitive Digit Spoofing Pattern"
+        dna_score = 90
+    elif "123456" in digits_only or "234567" in digits_only or "987654" in digits_only:
+        is_spoofed_or_bot = True
+        dna_pattern = "Sequential Digit Spoofing Pattern"
+        dna_score = 85
+    elif any(clean.startswith(p) or digits_only.startswith(p.replace("+", "")) for p in ["140", "141", "160", "+232", "+881", "+882", "1900", "0900"]):
+        is_spoofed_or_bot = True
+        dna_pattern = "Telemarketing / Commercial DND Prefix"
+        dna_score = 80
+    
+    # Layer 2: Crowdsourced Spam Ratings
+    crowdsourced_score = 0
+    if total_reports >= 10:
+        crowdsourced_score = 95
+    elif total_reports >= 5:
+        crowdsourced_score = 80
+    elif total_reports >= 2:
+        crowdsourced_score = 65
+    elif total_reports == 1:
+        crowdsourced_score = 45
+        
+    if is_spam:
+        crowdsourced_score = max(crowdsourced_score, 75)
+        
+    # Layer 3: Contextual Behavior Rules & Synthesis
+    if is_blocked:
+        final_score = 100
+        risk_level = "CRITICAL_SPAM"
+        should_auto_block = True
+    elif is_spoofed_or_bot and crowdsourced_score > 0:
+        final_score = max(90, max(dna_score, crowdsourced_score))
+        risk_level = "CRITICAL_SPAM"
+        should_auto_block = True
+    elif is_spoofed_or_bot:
+        final_score = dna_score
+        risk_level = "HIGH_RISK" if final_score >= 70 else "SUSPICIOUS"
+        should_auto_block = (final_score >= 70)
+    elif crowdsourced_score > 0:
+        final_score = crowdsourced_score
+        risk_level = "CRITICAL_SPAM" if final_score >= 85 else ("HIGH_RISK" if final_score >= 70 else "SUSPICIOUS")
+        should_auto_block = (final_score >= 70)
+    else:
+        final_score = 15 if (caller_name and caller_name != "Unknown Caller") else 50
+        risk_level = "SAFE" if final_score < 30 else "NORMAL"
+        should_auto_block = False
+        
+    return {
+        "final_risk_score": final_score,
+        "risk_level": risk_level,
+        "is_spoofed_or_bot": is_spoofed_or_bot,
+        "digital_dna_pattern": dna_pattern,
+        "crowdsourced_reports": total_reports,
+        "should_auto_block": should_auto_block,
+        "recommended_action": "AUTO_BLOCK" if should_auto_block else ("WARN" if final_score >= 40 else "ALLOW")
+    }
+
 @router.get("/api/callers/lookup/{num}")
 @router.get("/api/live-call/lookup/{num}")
 def caller_lookup(num: str, db: Session = Depends(get_db)):
     c_num = clean_num(num)
     if not is_db_online():
         is_spam = "143" in num or "99" in num
+        reports = 1 if is_spam else 0
+        tri = evaluate_tri_layer(num, "Potential Spam" if is_spam else "Verified Contact", reports, is_spam, False)
         return {
             "exists": True if ("555" in num or is_spam) else False,
             "caller_name": "Potential Spam" if is_spam else "Verified Contact",
-            "risk_score": 85 if is_spam else 15,
+            "risk_score": tri["final_risk_score"],
+            "risk_level": tri["risk_level"],
             "is_spam": is_spam,
             "is_blocked": False,
             "carrier": "Cellular Network",
             "location": "Local",
-            "total_reports": 1 if is_spam else 0
+            "total_reports": reports,
+            "is_spoofed_or_bot": tri["is_spoofed_or_bot"],
+            "digital_dna_pattern": tri["digital_dna_pattern"],
+            "should_auto_block": tri["should_auto_block"],
+            "recommended_action": tri["recommended_action"]
         }
     try:
         res = db.execute(
@@ -50,38 +129,63 @@ def caller_lookup(num: str, db: Session = Depends(get_db)):
             {"n": c_num}
         ).first()
 
+        is_blocked = blocked is not None
         if res:
+            name = res[0] or "Shield Identified"
+            is_spam = bool(res[1])
+            reports = 1 if is_spam else 0
+            tri = evaluate_tri_layer(num, name, reports, is_spam, is_blocked)
             return {
                 "exists": True,
-                "caller_name": res[0] or "Shield Identified",
-                "risk_score": 85 if bool(res[1]) else 10,
-                "is_spam": bool(res[1]),
-                "is_blocked": blocked is not None,
+                "caller_name": name,
+                "risk_score": tri["final_risk_score"],
+                "risk_level": tri["risk_level"],
+                "is_spam": is_spam,
+                "is_blocked": is_blocked,
                 "carrier": "Verified Network",
                 "location": "India",
-                "total_reports": 1 if bool(res[1]) else 0,
+                "total_reports": reports,
+                "is_spoofed_or_bot": tri["is_spoofed_or_bot"],
+                "digital_dna_pattern": tri["digital_dna_pattern"],
+                "should_auto_block": tri["should_auto_block"],
+                "recommended_action": tri["recommended_action"]
             }
+
+        tri = evaluate_tri_layer(num, "Unknown Caller", 0, False, is_blocked)
         return {
             "exists": False,
             "caller_name": "Unknown Caller",
-            "risk_score": 50,
+            "risk_score": tri["final_risk_score"],
+            "risk_level": tri["risk_level"],
             "is_spam": False,
-            "is_blocked": blocked is not None,
+            "is_blocked": is_blocked,
             "carrier": "Unknown",
             "location": "Unknown",
-            "total_reports": 0
+            "total_reports": 0,
+            "is_spoofed_or_bot": tri["is_spoofed_or_bot"],
+            "digital_dna_pattern": tri["digital_dna_pattern"],
+            "should_auto_block": tri["should_auto_block"],
+            "recommended_action": tri["recommended_action"]
         }
     except Exception as e:
         logger.warning(f"Lookup offline fallback: {e}")
+        is_spam = "143" in num
+        reports = 1 if is_spam else 0
+        tri = evaluate_tri_layer(num, "Potential Spam" if is_spam else "Verified Contact", reports, is_spam, False)
         return {
             "exists": True if ("555" in num or "143" in num) else False,
             "caller_name": "Potential Spam" if "143" in num else "Verified Contact",
-            "risk_score": 85 if "143" in num else 15,
-            "is_spam": "143" in num,
+            "risk_score": tri["final_risk_score"],
+            "risk_level": tri["risk_level"],
+            "is_spam": is_spam,
             "is_blocked": False,
             "carrier": "Cellular Network",
             "location": "Local",
-            "total_reports": 1 if "143" in num else 0
+            "total_reports": reports,
+            "is_spoofed_or_bot": tri["is_spoofed_or_bot"],
+            "digital_dna_pattern": tri["digital_dna_pattern"],
+            "should_auto_block": tri["should_auto_block"],
+            "recommended_action": tri["recommended_action"]
         }
 
 @router.post("/api/callers/upload")

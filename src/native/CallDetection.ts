@@ -220,6 +220,52 @@ class CallDetectionManager {
     return false;
   }
 
+  async syncContacts(): Promise<{ success: boolean; message: string }> {
+    if (Platform.OS !== 'android' || !CallDetectionModule?.syncContacts) {
+      return { success: false, message: 'Platform not supported' };
+    }
+    try {
+      return await CallDetectionModule.syncContacts();
+    } catch (error: any) {
+      console.error('❌ Sync contacts error:', error);
+      return { success: false, message: error?.message || 'Failed to sync contacts' };
+    }
+  }
+
+  async analyzeCaller(phoneNumber: string): Promise<{
+    riskScore: number;
+    riskLevel: string;
+    shouldAutoBlock: boolean;
+    isSpoofedOrBot: boolean;
+    digitalDnaPattern: string;
+    crowdsourcedReports: number;
+    contextualReason: string;
+    recommendedAction: string;
+    isInContacts: boolean;
+  } | null> {
+    if (Platform.OS !== 'android' || !CallDetectionModule?.analyzeCaller) return null;
+    try {
+      return await CallDetectionModule.analyzeCaller(phoneNumber);
+    } catch (error) {
+      console.error('❌ Analyze caller error:', error);
+      return null;
+    }
+  }
+
+  async checkAndAutoBlock(phoneNumber: string): Promise<{
+    autoBlocked: boolean;
+    riskScore: number;
+    riskLevel: string;
+  } | null> {
+    if (Platform.OS !== 'android' || !CallDetectionModule?.checkAndAutoBlock) return null;
+    try {
+      return await CallDetectionModule.checkAndAutoBlock(phoneNumber);
+    } catch (error) {
+      console.error('❌ Auto-block error:', error);
+      return null;
+    }
+  }
+
   getAvailableMethods(): string[] {
     if (!CallDetectionModule) return [];
     return Object.keys(CallDetectionModule);

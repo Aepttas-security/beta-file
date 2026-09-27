@@ -97,6 +97,16 @@ public class PopupService extends Service {
                 @Override
                 public void onResult(CallerEntity caller) {
                     new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                        // 🛡️ Run Tri-Layer Detection Engine
+                        TriLayerDetectionEngine.DetectionResult analysis =
+                                TriLayerDetectionEngine.analyze(PopupService.this, phoneNumber, caller, isInLocal);
+
+                        caller.riskScore = analysis.finalRiskScore;
+                        if (analysis.shouldAutoBlock) {
+                            caller.isBlocked = true;
+                            AutoBlockService.checkAndBlock(PopupService.this, caller);
+                        }
+
                         String finalName;
                         if (isInLocal) {
                             finalName = "📇 " + localContactName;
@@ -107,15 +117,28 @@ public class PopupService extends Service {
                             finalName = "Unknown Caller";
                         }
 
+                        String reportDetails = "";
+                        if (analysis.isSpoofedOrBot) {
+                            reportDetails = "⚠️ " + analysis.digitalDnaPattern;
+                        } else if (analysis.crowdsourcedReports > 0) {
+                            reportDetails = "🚨 " + analysis.crowdsourcedReports + " community spam reports";
+                        } else if (isInLocal) {
+                            reportDetails = "Verified in Local Contacts";
+                        } else {
+                            reportDetails = "Shield Inspected Caller";
+                        }
+
                         showUnifiedPopup(
                                 finalName,
-                                caller.phoneNumber,
+                                caller.phoneNumber != null ? caller.phoneNumber : phoneNumber,
                                 isInLocal,
-                                caller.riskScore,
-                                caller.totalReports,
+                                analysis.finalRiskScore,
+                                analysis.riskLevel,
+                                reportDetails,
                                 callType, duration, answered,
                                 caller.carrier,
-                                caller.location
+                                caller.location,
+                                analysis.shouldAutoBlock
                         );
                     });
                 }
@@ -123,11 +146,20 @@ public class PopupService extends Service {
                 @Override
                 public void onError(String message) {
                     new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                        CallerEntity def = ContactLookupService.buildDefaultCaller(phoneNumber);
+                        TriLayerDetectionEngine.DetectionResult analysis =
+                                TriLayerDetectionEngine.analyze(PopupService.this, phoneNumber, def, isInLocal);
+
                         String finalName = isInLocal ? "📇 " + localContactName : "Unknown Caller";
+                        String reportDetails = analysis.isSpoofedOrBot 
+                                ? "⚠️ " + analysis.digitalDnaPattern 
+                                : (isInLocal ? "Verified in Local Contacts" : "Shield Inspected Caller");
+
                         showUnifiedPopup(finalName, phoneNumber,
-                                isInLocal, 50, 0,
+                                isInLocal, analysis.finalRiskScore, analysis.riskLevel,
+                                reportDetails,
                                 callType, duration, answered,
-                                "Unknown", "Unknown");
+                                "Cellular Network", "Local", analysis.shouldAutoBlock);
                     });
                 }
             });
@@ -135,9 +167,11 @@ public class PopupService extends Service {
     }
 
     private void showUnifiedPopup(String callerName, String phoneNumber,
-                                  boolean isInContacts, int riskScore, int spamReports,
+                                  boolean isInContacts, int riskScore, String riskLevel,
+                                  String reportDetails,
                                   String callType, String durationStr, 
-                                  boolean answered, String carrier, String location) {
+                                  boolean answered, String carrier, String location,
+                                  boolean isAutoBlocked) {
 
         Log.d(TAG, "🚀 Showing Popup Over Apps: " + callerName + " (" + phoneNumber + ")");
 
@@ -147,7 +181,8 @@ public class PopupService extends Service {
                     windowManager.removeView(popupView);
                 }
 
-                LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
+                android.view.ContextThemeWrapper themedContext = new android.view.ContextThemeWrapper(this, R.style.AppTheme);
+                LayoutInflater inflater = LayoutInflater.from(themedContext);
                 popupView = inflater.inflate(R.layout.floating_caller_info, null);
 
                 ImageView iconIV     = popupView.findViewById(R.id.popupIcon);
@@ -170,19 +205,25 @@ public class PopupService extends Service {
                 String locationStr = (location != null && !location.equals("null")) ? location : "India";
                 detailsTV.setText(carrierStr + " | " + locationStr);
 
-                if (spamReports > 0) {
+                if (reportDetails != null && !reportDetails.isEmpty()) {
                     reportsTV.setVisibility(View.VISIBLE);
-                    reportsTV.setText(spamReports + " community reports detected");
+                    reportsTV.setText(reportDetails);
                 } else {
                     reportsTV.setText(isInContacts ? "Verified in Contacts" : "Shield Verified Caller");
                 }
 
-                riskScoreTV.setText("RISK SCORE: " + riskScore + "%");
+                riskScoreTV.setText("RISK: " + riskScore + "% [" + riskLevel + "]");
                 
                 int riskColor = riskScore >= 70 ? 0xFFEF4444 : riskScore >= 40 ? 0xFFF59E0B : 0xFF10B981;
                 riskScoreTV.setTextColor(riskColor);
 
-                if ("SUMMARY".equals(callType)) {
+                if (isAutoBlocked) {
+                    iconIV.setImageResource(android.R.drawable.ic_delete);
+                    iconIV.setColorFilter(0xFFEF4444);
+                    titleTV.setText("🛡️ AUTO-BLOCKED (RISK >= 70%)");
+                    titleTV.setTextColor(0xFFEF4444);
+                    if (btnAllow != null) btnAllow.setVisibility(View.GONE);
+                } else if ("SUMMARY".equals(callType)) {
                     iconIV.setImageResource(android.R.drawable.ic_menu_call);
                     iconIV.setColorFilter(0xFFFFFFFF);
                     
@@ -207,10 +248,10 @@ public class PopupService extends Service {
 
                 } else {
                     iconIV.setImageResource(android.R.drawable.star_big_on);
-                    iconIV.setColorFilter(0xFFF59E0B);
+                    iconIV.setColorFilter(riskColor);
                     
                     titleTV.setText("INCOMING CALL IDENTIFIED");
-                    titleTV.setTextColor(0xFFF59E0B);
+                    titleTV.setTextColor(riskColor);
                     if (btnAllow != null) btnAllow.setVisibility(View.VISIBLE);
                 }
 

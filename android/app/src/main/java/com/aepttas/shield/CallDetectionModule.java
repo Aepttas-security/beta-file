@@ -601,6 +601,90 @@ public class CallDetectionModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void syncContacts(Promise promise) {
+        new Thread(() -> {
+            try {
+                com.aepttas.shield.helpers.ContactSyncHelper.syncContactsSync(getReactApplicationContext());
+                WritableMap res = Arguments.createMap();
+                res.putBoolean("success", true);
+                res.putString("message", "Contacts synchronized successfully with backend");
+                promise.resolve(res);
+            } catch (Exception e) {
+                Log.e(TAG, "syncContacts error: " + e.getMessage());
+                promise.reject("SYNC_ERROR", e.getMessage());
+            }
+        }).start();
+    }
+
+    @ReactMethod
+    public void analyzeCaller(String phoneNumber, Promise promise) {
+        new Thread(() -> {
+            try {
+                Context ctx = getReactApplicationContext();
+                boolean inContacts = com.aepttas.shield.helpers.ContactUtils.isNumberInContacts(ctx, phoneNumber);
+                com.aepttas.shield.db.CallerEntity caller = null;
+                try {
+                    caller = com.aepttas.shield.db.ShieldDatabase.getDatabase(ctx).callerDao().getByPhoneNumber(phoneNumber);
+                } catch (Exception ignore) {}
+
+                com.aepttas.shield.services.TriLayerDetectionEngine.DetectionResult res =
+                        com.aepttas.shield.services.TriLayerDetectionEngine.analyze(ctx, phoneNumber, caller, inContacts);
+
+                WritableMap map = Arguments.createMap();
+                map.putInt("riskScore", res.finalRiskScore);
+                map.putString("riskLevel", res.riskLevel);
+                map.putBoolean("shouldAutoBlock", res.shouldAutoBlock);
+                map.putBoolean("isSpoofedOrBot", res.isSpoofedOrBot);
+                map.putString("digitalDnaPattern", res.digitalDnaPattern);
+                map.putInt("crowdsourcedReports", res.crowdsourcedReports);
+                map.putString("contextualReason", res.contextualReason);
+                map.putString("recommendedAction", res.recommendedAction);
+                map.putBoolean("isInContacts", inContacts);
+
+                promise.resolve(map);
+            } catch (Exception e) {
+                Log.e(TAG, "analyzeCaller error: " + e.getMessage());
+                promise.reject("ANALYZE_ERROR", e.getMessage());
+            }
+        }).start();
+    }
+
+    @ReactMethod
+    public void checkAndAutoBlock(String phoneNumber, Promise promise) {
+        new Thread(() -> {
+            try {
+                Context ctx = getReactApplicationContext();
+                boolean inContacts = com.aepttas.shield.helpers.ContactUtils.isNumberInContacts(ctx, phoneNumber);
+                com.aepttas.shield.db.CallerEntity caller = null;
+                try {
+                    caller = com.aepttas.shield.db.ShieldDatabase.getDatabase(ctx).callerDao().getByPhoneNumber(phoneNumber);
+                } catch (Exception ignore) {}
+
+                if (caller == null) {
+                    caller = com.aepttas.shield.services.ContactLookupService.buildDefaultCaller(phoneNumber);
+                }
+
+                com.aepttas.shield.services.TriLayerDetectionEngine.DetectionResult res =
+                        com.aepttas.shield.services.TriLayerDetectionEngine.analyze(ctx, phoneNumber, caller, inContacts);
+
+                if (res.shouldAutoBlock) {
+                    caller.riskScore = res.finalRiskScore;
+                    caller.isBlocked = true;
+                    com.aepttas.shield.services.AutoBlockService.checkAndBlock(ctx, caller);
+                }
+
+                WritableMap map = Arguments.createMap();
+                map.putBoolean("autoBlocked", res.shouldAutoBlock);
+                map.putInt("riskScore", res.finalRiskScore);
+                map.putString("riskLevel", res.riskLevel);
+                promise.resolve(map);
+            } catch (Exception e) {
+                promise.reject("AUTOBLOCK_ERROR", e.getMessage());
+            }
+        }).start();
+    }
+
+    @ReactMethod
     public void addListener(String eventName) {}
 
     @ReactMethod

@@ -170,6 +170,44 @@ public class ContactUtils {
         });
     }
 
+    public static boolean isNumberInContacts(Context context, String phoneNumber) {
+        String name = getContactNameSync(context, phoneNumber);
+        return name != null && !name.isEmpty() && !name.equals("null");
+    }
+
+    public static String getContactNameSync(Context context, String phoneNumber) {
+        if (phoneNumber == null || phoneNumber.isEmpty()) return "";
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) 
+                != PackageManager.PERMISSION_GRANTED) {
+            return "";
+        }
+        try {
+            String cleanedNumber = phoneNumber.replaceAll("[^0-9+]", "");
+            Uri lookupUri = Uri.withAppendedPath(
+                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                Uri.encode(cleanedNumber)
+            );
+            String[] projection = new String[]{ 
+                ContactsContract.PhoneLookup.DISPLAY_NAME,
+                ContactsContract.PhoneLookup.NUMBER
+            };
+            ContentResolver resolver = context.getContentResolver();
+            Cursor cursor = resolver.query(lookupUri, projection, null, null, null);
+            if (cursor != null) {
+                try {
+                    if (cursor.moveToFirst()) {
+                        return cursor.getString(0);
+                    }
+                } finally {
+                    cursor.close();
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in getContactNameSync: " + e.getMessage());
+        }
+        return "";
+    }
+
     private static void sendResult(OnContactNameRetrievedListener listener, String result) {
         new Handler(Looper.getMainLooper()).post(() -> listener.onContactNameRetrieved(result));
     }

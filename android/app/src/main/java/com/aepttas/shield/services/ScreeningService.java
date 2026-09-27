@@ -67,6 +67,28 @@ public class ScreeningService extends CallScreeningService {
         // Must run on current thread (ScreeningService is already on a background thread).
         boolean blocked = BlockService.isBlocked(this, phoneNumber);
 
+        if (!blocked) {
+            boolean inContacts = com.aepttas.shield.helpers.ContactUtils.isNumberInContacts(this, phoneNumber);
+            com.aepttas.shield.db.CallerEntity caller = null;
+            try {
+                caller = ShieldDatabase.getDatabase(this).callerDao().getByPhoneNumber(phoneNumber);
+            } catch (Exception ignore) {}
+
+            TriLayerDetectionEngine.DetectionResult analysis =
+                    TriLayerDetectionEngine.analyze(this, phoneNumber, caller, inContacts);
+
+            if (analysis.shouldAutoBlock) {
+                Log.w(TAG, "🚨 Tri-Layer Auto-Blocking: " + phoneNumber + " (" + analysis.digitalDnaPattern + ")");
+                blocked = true;
+                if (caller == null) {
+                    caller = ContactLookupService.buildDefaultCaller(phoneNumber);
+                }
+                caller.riskScore = analysis.finalRiskScore;
+                caller.isBlocked = true;
+                AutoBlockService.checkAndBlock(this, caller);
+            }
+        }
+
         if (blocked) {
             Log.w(TAG, "🚫 BLOCKED call from: " + phoneNumber + " – rejecting");
 

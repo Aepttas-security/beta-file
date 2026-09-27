@@ -20,6 +20,8 @@ import { colors } from '../styles/theme';
 import { Icon } from '../components/Icon';
 import { useCallerIntelligence } from '../hooks/useCallerIntelligence';
 import { getCallerBaseUrl } from '../config/apiConfig';
+import CallDetection from '../native/CallDetection';
+import { syncContactsWithBackend } from '../services/ContactService';
 
 interface MockCall {
   name: string;
@@ -122,8 +124,33 @@ export const CallerIntelligenceScreen: React.FC<CallerIntelligenceScreenProps> =
     }
   };
 
+  const [isSyncingContacts, setIsSyncingContacts] = useState(false);
+
+  const handleSyncContacts = async () => {
+    setIsSyncingContacts(true);
+    showToast('Starting contact sync with Shield backend...');
+    try {
+      const res = await syncContactsWithBackend();
+      showToast(res.message);
+    } catch (err: any) {
+      showToast('Sync failed: ' + (err?.message || 'Network error'));
+    } finally {
+      setIsSyncingContacts(false);
+    }
+  };
+
   const handleSimulateCall = async (call: MockCall) => {
     setActiveSimulatedCall(call);
+
+    // 🚀 Trigger native Android PopupService overlay
+    try {
+      if (Platform.OS === 'android') {
+        await CallDetection.simulateCall(call.number);
+      }
+    } catch (e) {
+      console.warn('Native simulation error:', e);
+    }
+
     try {
       await fetch(`${getCallerBaseUrl()}/api/live-call/analyze`, {
         method: 'POST',
@@ -328,13 +355,27 @@ export const CallerIntelligenceScreen: React.FC<CallerIntelligenceScreenProps> =
               <TouchableOpacity style={styles.actionWidget} onPress={() => setActiveTab(1)}>
                 <Icon name="phone-callback" color={colors.greenSuccess} size={24} />
                 <Text style={styles.actionWidgetTitle}>Simulate Live Call</Text>
-                <Text style={styles.actionWidgetSub}>Test shield triggers</Text>
+                <Text style={styles.actionWidgetSub}>Test overlay popup</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.actionWidget} onPress={() => setActiveTab(2)}>
                 <Icon name="search" color={colors.cyanAccent} size={24} />
                 <Text style={styles.actionWidgetTitle}>Directory Lookup</Text>
                 <Text style={styles.actionWidgetSub}>Reputation database</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.statsRow, { marginTop: 10 }]}>
+              <TouchableOpacity style={styles.actionWidget} onPress={handleSyncContacts} disabled={isSyncingContacts}>
+                <Icon name="cloud-upload" color={colors.purpleAccent} size={24} />
+                <Text style={styles.actionWidgetTitle}>{isSyncingContacts ? 'Syncing...' : 'Sync Contacts'}</Text>
+                <Text style={styles.actionWidgetSub}>Upload to Cloud</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.actionWidget} onPress={() => setActiveTab(4)}>
+                <Icon name="block" color={colors.redDanger} size={24} />
+                <Text style={styles.actionWidgetTitle}>Auto-Block Rules</Text>
+                <Text style={styles.actionWidgetSub}>Blocklist & Tri-Layer</Text>
               </TouchableOpacity>
             </View>
 
