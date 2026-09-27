@@ -477,7 +477,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </View>
       </Modal>
       {/* Background Glow */}
-      <View style={styles.glowContainer}>
+      <View style={styles.glowContainer} pointerEvents="none">
         <View style={styles.purpleGlow} />
       </View>
 

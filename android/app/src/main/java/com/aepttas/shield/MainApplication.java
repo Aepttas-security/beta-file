@@ -39,11 +39,6 @@ public class MainApplication extends Application implements ReactApplication {
       }
 
       @Override
-      protected boolean isNewArchEnabled() {
-        return BuildConfig.IS_NEW_ARCHITECTURE_ENABLED;
-      }
-
-      @Override
       protected boolean isHermesEnabled() {
         return BuildConfig.IS_HERMES_ENABLED;
       }
@@ -55,12 +50,22 @@ public class MainApplication extends Application implements ReactApplication {
   }
 
   @Override
+  public com.facebook.react.ReactHost getReactHost() {
+    return com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost(getApplicationContext(), mReactNativeHost, null);
+  }
+
+  @Override
   public void onCreate() {
     super.onCreate();
-    SoLoader.init(this, /* native exopackage */ false);
+    try {
+      com.facebook.soloader.SoLoader.init(this, com.facebook.react.soloader.OpenSourceMergedSoMapping.INSTANCE);
+    } catch (Throwable t) {
+      com.facebook.soloader.SoLoader.init(this, /* native exopackage */ false);
+    }
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       DefaultNewArchitectureEntryPoint.load();
     }
+
     
     // 🛡️ Schedule Shield Intelligence Tasks
     try {
