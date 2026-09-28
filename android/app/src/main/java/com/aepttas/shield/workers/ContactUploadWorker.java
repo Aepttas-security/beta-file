@@ -36,10 +36,8 @@ public class ContactUploadWorker extends Worker {
         Context ctx = getApplicationContext();
 
         SharedPreferences prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        // Only run if is_first_launch is true (default is true for new installs)
-        if (!prefs.getBoolean(KEY_FIRST_LAUNCH, true)) {
-            return Result.success();
-        }
+        long lastSync = prefs.getLong("last_contact_sync_time", 0);
+        long now = System.currentTimeMillis();
 
         if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_CONTACTS)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -47,9 +45,8 @@ public class ContactUploadWorker extends Worker {
         }
 
         try {
-            ContactSyncHelper.syncContacts(ctx);
-            // Mark first launch as complete
-            prefs.edit().putBoolean(KEY_FIRST_LAUNCH, false).apply();
+            ContactSyncHelper.syncContactsSync(ctx);
+            prefs.edit().putLong("last_contact_sync_time", now).apply();
             return Result.success();
         } catch (Exception e) {
             return Result.retry();
@@ -57,11 +54,6 @@ public class ContactUploadWorker extends Worker {
     }
 
     public static void scheduleNow(Context context) {
-        // Double check prefs before scheduling to avoid waking up WorkManager unnecessarily
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        if (!prefs.getBoolean(KEY_FIRST_LAUNCH, true)) {
-            return;
-        }
         Constraints constraints = new Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build();
@@ -83,7 +75,7 @@ public class ContactUploadWorker extends Worker {
 
     public static void forceSchedule(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putBoolean(KEY_FIRST_LAUNCH, true).apply();
+        prefs.edit().putLong("last_contact_sync_time", 0).apply();
 
         Constraints constraints = new Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)

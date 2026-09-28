@@ -37,6 +37,8 @@ public class PopupService extends Service {
     private static final int NOTIFICATION_ID = 999;
     private static final String CHANNEL_ID = "call_popup_channel";
     private static final String CHANNEL_NAME = "Call Identification";
+    private static final String HEADS_UP_CHANNEL_ID = "call_popup_alert_channel";
+    private static final String HEADS_UP_CHANNEL_NAME = "Incoming Call Alerts";
 
     private static final long SUMMARY_AUTO_DISMISS_MS = 8000L;
 
@@ -60,12 +62,6 @@ public class PopupService extends Service {
         String action = intent.getAction();
         if ("DISMISS_POPUP".equals(action)) {
             dismissPopup();
-            stopSelf();
-            return START_NOT_STICKY;
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                && !Settings.canDrawOverlays(this)) {
             stopSelf();
             return START_NOT_STICKY;
         }
@@ -291,12 +287,40 @@ public class PopupService extends Service {
                 layoutParams.y = 120;
                 layoutParams.x = 0;
 
-                windowManager.addView(popupView, layoutParams);
+                boolean canDraw = (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this));
+                if (canDraw) {
+                    windowManager.addView(popupView, layoutParams);
+                } else {
+                    showHeadsUpAlert(callerName + " (" + phoneNumber + ")",
+                            (isAutoBlocked ? "🚨 Auto-Blocked: " : "🛡️ Risk: " + riskScore + "% | ") + reportDetails,
+                            phoneNumber, riskScore >= 70);
+                }
 
             } catch (Exception e) {
                 Log.e(TAG, "❌ Popup error: " + e.getMessage());
+                showHeadsUpAlert(callerName + " (" + phoneNumber + ")",
+                        "Risk Score: " + riskScore + "% | " + reportDetails,
+                        phoneNumber, riskScore >= 70);
             }
         });
+    }
+
+    private void showHeadsUpAlert(String title, String message, String phoneNumber, boolean isSpam) {
+        try {
+            NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager != null) {
+                NotificationCompat.Builder builder = new NotificationCompat.Builder(this, HEADS_UP_CHANNEL_ID)
+                        .setContentTitle(title)
+                        .setContentText(message)
+                        .setSmallIcon(android.R.drawable.stat_sys_phone_call)
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setCategory(NotificationCompat.CATEGORY_CALL)
+                        .setAutoCancel(true);
+                manager.notify(1001, builder.build());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Heads up notification error: " + e.getMessage());
+        }
     }
 
     public void startForegroundPopupService() {
@@ -319,8 +343,14 @@ public class PopupService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_MIN);
+            NotificationChannel headsUp = new NotificationChannel(
+                    HEADS_UP_CHANNEL_ID, HEADS_UP_CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH);
+            headsUp.enableVibration(true);
             NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            if (manager != null) manager.createNotificationChannel(channel);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+                manager.createNotificationChannel(headsUp);
+            }
         }
     }
 

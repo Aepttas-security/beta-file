@@ -41,10 +41,7 @@ def get_audit(extra=None):
 @router.get("/api/call-history")
 def get_calls(db: Session = Depends(get_db)):
     if not is_db_online():
-        return [
-            {"id": 1, "caller_number": "+1 (555) 019-2831", "call_type": "INCOMING", "created_at": str(datetime.now()), "duration": 45, "caller_name": "Father Leo", "risk_score": 0},
-            {"id": 2, "caller_number": "+1 (202) 555-0143", "call_type": "INCOMING", "created_at": str(datetime.now()), "duration": 0, "caller_name": "Telemarketer", "risk_score": 85},
-        ]
+        return []
     try:
         res = db.execute(text("""
             SELECT c.call_id, cl.phone_number, c.call_type, c.start_time, c.call_duration,
@@ -66,10 +63,7 @@ def get_calls(db: Session = Depends(get_db)):
         } for r in res]
     except Exception as e:
         logger.warning(f"Calls fallback: {e}")
-        return [
-            {"id": 1, "caller_number": "+1 (555) 019-2831", "call_type": "INCOMING", "created_at": str(datetime.now()), "duration": 45, "caller_name": "Father Leo", "risk_score": 0},
-            {"id": 2, "caller_number": "+1 (202) 555-0143", "call_type": "INCOMING", "created_at": str(datetime.now()), "duration": 0, "caller_name": "Telemarketer", "risk_score": 85},
-        ]
+        return []
 
 @router.post("/api/live-call/analyze")
 def log_call(req: CallAnalyzeRequest, db: Session = Depends(get_db)):

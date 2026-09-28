@@ -101,19 +101,18 @@ def evaluate_tri_layer(num: str, caller_name: str, total_reports: int, is_spam: 
 def caller_lookup(num: str, db: Session = Depends(get_db)):
     c_num = clean_num(num)
     if not is_db_online():
-        is_spam = "143" in num or "99" in num
-        reports = 1 if is_spam else 0
-        tri = evaluate_tri_layer(num, "Potential Spam" if is_spam else "Verified Contact", reports, is_spam, False)
+        tri = evaluate_tri_layer(num, "Unregistered Caller", 0, False, False)
         return {
-            "exists": True if ("555" in num or is_spam) else False,
-            "caller_name": "Potential Spam" if is_spam else "Verified Contact",
+            "exists": False,
+            "source": "UNKNOWN",
+            "caller_name": "Unregistered Caller",
             "risk_score": tri["final_risk_score"],
             "risk_level": tri["risk_level"],
-            "is_spam": is_spam,
+            "is_spam": False,
             "is_blocked": False,
             "carrier": "Cellular Network",
             "location": "Local",
-            "total_reports": reports,
+            "total_reports": 0,
             "is_spoofed_or_bot": tri["is_spoofed_or_bot"],
             "digital_dna_pattern": tri["digital_dna_pattern"],
             "should_auto_block": tri["should_auto_block"],
@@ -137,6 +136,7 @@ def caller_lookup(num: str, db: Session = Depends(get_db)):
             tri = evaluate_tri_layer(num, name, reports, is_spam, is_blocked)
             return {
                 "exists": True,
+                "source": "CLOUD_BACKUP",
                 "caller_name": name,
                 "risk_score": tri["final_risk_score"],
                 "risk_level": tri["risk_level"],
@@ -154,6 +154,7 @@ def caller_lookup(num: str, db: Session = Depends(get_db)):
         tri = evaluate_tri_layer(num, "Unknown Caller", 0, False, is_blocked)
         return {
             "exists": False,
+            "source": "UNKNOWN",
             "caller_name": "Unknown Caller",
             "risk_score": tri["final_risk_score"],
             "risk_level": tri["risk_level"],
@@ -169,19 +170,18 @@ def caller_lookup(num: str, db: Session = Depends(get_db)):
         }
     except Exception as e:
         logger.warning(f"Lookup offline fallback: {e}")
-        is_spam = "143" in num
-        reports = 1 if is_spam else 0
-        tri = evaluate_tri_layer(num, "Potential Spam" if is_spam else "Verified Contact", reports, is_spam, False)
+        tri = evaluate_tri_layer(num, "Unknown Caller", 0, False, False)
         return {
-            "exists": True if ("555" in num or "143" in num) else False,
-            "caller_name": "Potential Spam" if "143" in num else "Verified Contact",
+            "exists": False,
+            "source": "UNKNOWN",
+            "caller_name": "Unknown Caller",
             "risk_score": tri["final_risk_score"],
             "risk_level": tri["risk_level"],
-            "is_spam": is_spam,
+            "is_spam": False,
             "is_blocked": False,
             "carrier": "Cellular Network",
             "location": "Local",
-            "total_reports": reports,
+            "total_reports": 0,
             "is_spoofed_or_bot": tri["is_spoofed_or_bot"],
             "digital_dna_pattern": tri["digital_dna_pattern"],
             "should_auto_block": tri["should_auto_block"],
@@ -191,15 +191,23 @@ def caller_lookup(num: str, db: Session = Depends(get_db)):
 @router.post("/api/callers/upload")
 def upload_callers(req: List[CallerCreateRequest], db: Session = Depends(get_db)):
     try:
+        inserted = 0
+        updated = 0
         for c in req:
             num = clean_num(c.phone_number)
             if not num:
                 continue
             existing = db.execute(
-                text("SELECT caller_id FROM apt.apt_callers_b WHERE RIGHT(phone_number, 10) = RIGHT(:n, 10)"),
+                text("SELECT caller_id, caller_name FROM apt.apt_callers_b WHERE RIGHT(phone_number, 10) = RIGHT(:n, 10)"),
                 {"n": num}
             ).first()
             if existing:
+                if c.caller_name and c.caller_name not in ["Unknown Caller", "Unknown", ""] and (not existing[1] or existing[1] in ["Unknown Caller", "Unknown", ""]):
+                    db.execute(
+                        text("UPDATE apt.apt_callers_b SET caller_name = :nm, last_updated_date = now() WHERE caller_id = :cid"),
+                        {"nm": c.caller_name, "cid": existing[0]}
+                    )
+                    updated += 1
                 continue
 
             p = get_audit({"n": num, "nm": c.caller_name or "Unknown Caller"})
@@ -207,8 +215,9 @@ def upload_callers(req: List[CallerCreateRequest], db: Session = Depends(get_db)
                 text("INSERT INTO apt.apt_callers_b (caller_uuid, phone_number, caller_name, created_by, created_date, last_updated_by, last_updated_date) VALUES (:uuid, :n, :nm, :by, :dt, :by, :dt)"),
                 p
             )
+            inserted += 1
         db.commit()
-        return {"status": "success"}
+        return {"status": "success", "inserted": inserted, "updated": updated}
     except Exception as e:
         db.rollback()
         logger.error(f"Upload failed: {e}")

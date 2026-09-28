@@ -43,6 +43,14 @@ public class WorkScheduler {
                         .build();
         workManager.enqueueUniquePeriodicWork(
                 "ShieldRiskScore", ExistingPeriodicWorkPolicy.KEEP, riskRequest);
+
+        // 3. Contact Cloud Sync – every 12 hours
+        PeriodicWorkRequest contactRequest =
+                new PeriodicWorkRequest.Builder(ContactUploadWorker.class, 12, TimeUnit.HOURS)
+                        .setConstraints(constraints)
+                        .build();
+        workManager.enqueueUniquePeriodicWork(
+                "ShieldContactSync", ExistingPeriodicWorkPolicy.KEEP, contactRequest);
     }
 
     /**

@@ -1,67 +1,46 @@
 import { PermissionsAndroid, Platform } from 'react-native';
+import CallDetection from '../native/CallDetection';
+import { getCallerBaseUrl } from '../config/apiConfig';
 
 export interface LocalContact {
   recordID: string;
   displayName: string;
-  phoneNumbers: Array<{ label: string; number: string }>;
-  hasThumbnail: boolean;
+  phoneNumber: string;
+  phoneNumbers?: Array<{ label: string; number: string }>;
+  hasThumbnail?: boolean;
   thumbnailPath?: string;
 }
 
-const isNative = Platform.OS === 'android' || Platform.OS === 'ios';
-
-const getContactsModule = async () => {
-  if (!isNative) {
-    return null;
-  }
-  try {
-    const Contacts = require('react-native-contacts');
-    return Contacts;
-  } catch (error) {
-    console.warn('Contacts module not available:', error);
-    return null;
-  }
-};
-
 export const getLocalContacts = async (): Promise<LocalContact[]> => {
-  if (!isNative) {
-    console.log('📱 Contacts not supported on web');
+  if (Platform.OS !== 'android') {
     return [];
   }
 
   try {
-    const Contacts = await getContactsModule();
-    if (!Contacts) {
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
+      {
+        title: 'Contacts Permission',
+        message: 'Shield needs access to your contacts to identify callers and search numbers.',
+        buttonNeutral: 'Ask Later',
+        buttonNegative: 'Cancel',
+        buttonPositive: 'OK',
+      }
+    );
+    if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
       return [];
     }
 
-    if (Platform.OS === 'android') {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
-        {
-          title: 'Contacts Permission',
-          message: 'This app needs access to your contacts to identify callers.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        }
-      );
-      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-        return [];
-      }
-    }
-
-    const contacts = await Contacts.getAll();
-    
-    return contacts.map((contact: any) => ({
-      recordID: contact.recordID || '',
-      displayName: contact.displayName || 'Unknown',
-      phoneNumbers: contact.phoneNumbers || [],
-      hasThumbnail: contact.hasThumbnail || false,
-      thumbnailPath: contact.thumbnailPath,
+    const nativeContacts = await CallDetection.getDeviceContacts();
+    return nativeContacts.map(c => ({
+      recordID: c.recordID,
+      displayName: c.displayName,
+      phoneNumber: c.phoneNumber,
+      phoneNumbers: [{ label: 'mobile', number: c.phoneNumber }],
+      thumbnailPath: c.thumbnailPath,
     }));
   } catch (error) {
-    console.error('Failed to get contacts:', error);
+    console.error('Failed to get local contacts:', error);
     return [];
   }
 };
@@ -71,17 +50,33 @@ export const findContactByNumber = (
   phoneNumber: string
 ): LocalContact | null => {
   const cleanNumber = phoneNumber.replace(/\D/g, '');
+  if (!cleanNumber || cleanNumber.length < 4) return null;
+  const last10 = cleanNumber.slice(-10);
+
   for (const contact of contacts) {
-    for (const phone of contact.phoneNumbers) {
-      const cleanContactNumber = phone.number.replace(/\D/g, '');
-      if (cleanContactNumber === cleanNumber || 
-          cleanContactNumber.includes(cleanNumber) || 
-          cleanNumber.includes(cleanContactNumber)) {
-        return contact;
+    const cleanPhone = (contact.phoneNumber || '').replace(/\D/g, '');
+    if (cleanPhone && (cleanPhone === cleanNumber || cleanPhone.endsWith(last10) || (cleanPhone.length >= 10 && last10.endsWith(cleanPhone.slice(-10))))) {
+      return contact;
+    }
+    if (contact.phoneNumbers) {
+      for (const p of contact.phoneNumbers) {
+        const cp = (p.number || '').replace(/\D/g, '');
+        if (cp && (cp === cleanNumber || cp.endsWith(last10) || (cp.length >= 10 && last10.endsWith(cp.slice(-10))))) {
+          return contact;
+        }
       }
     }
   }
   return null;
+};
+
+export const findContactByName = (
+  contacts: LocalContact[],
+  nameQuery: string
+): LocalContact[] => {
+  const query = nameQuery.trim().toLowerCase();
+  if (!query) return [];
+  return contacts.filter(c => (c.displayName || '').toLowerCase().includes(query));
 };
 
 export const getContactName = (
@@ -95,10 +90,10 @@ export const getContactName = (
 export const syncContactsWithBackend = async (): Promise<{ success: boolean; count: number; message: string }> => {
   try {
     if (Platform.OS === 'android') {
-      const callDetection = require('../native/CallDetection').default;
-      const res = await callDetection.syncContacts();
-      if (res && res.success) {
-        return { success: true, count: 1, message: res.message || 'Contacts synced successfully' };
+      try {
+        await CallDetection.syncContacts();
+      } catch (nativeErr) {
+        console.warn('Native syncContacts warning:', nativeErr);
       }
     }
 
@@ -107,25 +102,41 @@ export const syncContactsWithBackend = async (): Promise<{ success: boolean; cou
       return { success: false, count: 0, message: 'No contacts found or permission denied' };
     }
 
-    const { getCallerBaseUrl } = require('../config/apiConfig');
-    const payload = contacts.map(c => ({
-      caller_name: c.displayName,
-      phone_number: c.phoneNumbers[0]?.number || ''
-    })).filter(c => c.phone_number);
+    const payload = contacts
+      .filter(c => c.phoneNumber && c.phoneNumber.trim().length > 3)
+      .map(c => ({
+        caller_name: c.displayName || 'Unknown',
+        phone_number: c.phoneNumber.trim(),
+      }));
 
-    const resp = await fetch(`${getCallerBaseUrl()}/api/callers/upload`, {
+    if (payload.length === 0) {
+      return { success: false, count: 0, message: 'No valid phone numbers found to upload' };
+    }
+
+    const baseUrl = getCallerBaseUrl();
+    const resp = await fetch(`${baseUrl}/api/callers/upload`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': 'shield-prod-key-2024'
+        'X-API-Key': 'shield-prod-key-2024',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (resp.ok) {
-      return { success: true, count: payload.length, message: `Synced ${payload.length} contacts successfully` };
+      const data = await resp.json().catch(() => ({}));
+      const count = data.inserted || payload.length;
+      return {
+        success: true,
+        count: payload.length,
+        message: `Successfully synchronized ${payload.length} contacts with cloud database`,
+      };
     } else {
-      return { success: false, count: 0, message: `Server returned HTTP ${resp.status}` };
+      return {
+        success: false,
+        count: 0,
+        message: `Server returned HTTP ${resp.status}`,
+      };
     }
   } catch (error: any) {
     console.error('syncContactsWithBackend error:', error);

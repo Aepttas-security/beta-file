@@ -266,6 +266,38 @@ class CallDetectionManager {
     }
   }
 
+  async getDeviceContacts(): Promise<Array<{ recordID: string; displayName: string; phoneNumber: string; thumbnailPath?: string }>> {
+    if (Platform.OS !== 'android' || !CallDetectionModule?.getDeviceContacts) return [];
+    try {
+      return await CallDetectionModule.getDeviceContacts();
+    } catch (e) {
+      console.warn('getDeviceContacts error:', e);
+      return [];
+    }
+  }
+
+  async getDeviceCallLogs(limit: number = 100): Promise<Array<{
+    id: string;
+    callerName: string;
+    phoneNumber: string;
+    callType: string;
+    timestamp: string;
+    timestampMs: number;
+    duration: string;
+    durationSeconds: number;
+    isBlocked: boolean;
+    isSpam: boolean;
+    riskScore: number;
+  }>> {
+    if (Platform.OS !== 'android' || !CallDetectionModule?.getDeviceCallLogs) return [];
+    try {
+      return await CallDetectionModule.getDeviceCallLogs(limit);
+    } catch (e) {
+      console.warn('getDeviceCallLogs error:', e);
+      return [];
+    }
+  }
+
   getAvailableMethods(): string[] {
     if (!CallDetectionModule) return [];
     return Object.keys(CallDetectionModule);

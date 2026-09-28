@@ -9,6 +9,14 @@ import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Log;
 
+import android.Manifest;
+import android.content.ContentResolver;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.provider.CallLog;
+import android.provider.ContactsContract;
+import androidx.core.content.ContextCompat;
+
 import com.aepttas.shield.db.CallHistoryItem;
 import com.aepttas.shield.db.ShieldDatabase;
 import com.aepttas.shield.services.BlockService;
@@ -312,6 +320,171 @@ public class CallDetectionModule extends ReactContextBaseJavaModule {
                 promise.resolve(true);
             } catch (Exception e) {
                 promise.reject("CLEAR_HISTORY_ERROR", e.getMessage());
+            }
+        }).start();
+    }
+
+    /**
+     * Reads actual contacts from device ContactsContract
+     */
+    @ReactMethod
+    public void getDeviceContacts(Promise promise) {
+        new Thread(() -> {
+            try {
+                Context context = getReactApplicationContext();
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    promise.resolve(Arguments.createArray());
+                    return;
+                }
+
+                ContentResolver cr = context.getContentResolver();
+                Cursor cursor = cr.query(
+                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                        new String[]{
+                                ContactsContract.CommonDataKinds.Phone._ID,
+                                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                                ContactsContract.CommonDataKinds.Phone.NUMBER,
+                                ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI
+                        },
+                        null, null,
+                        ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC"
+                );
+
+                WritableArray array = Arguments.createArray();
+                if (cursor != null) {
+                    java.util.HashSet<String> seen = new java.util.HashSet<>();
+                    while (cursor.moveToNext()) {
+                        String id = cursor.getString(0);
+                        String name = cursor.getString(1);
+                        String number = cursor.getString(2);
+                        String thumb = cursor.getString(3);
+
+                        if (number != null && !number.trim().isEmpty()) {
+                            String clean = number.replaceAll("[^0-9+]", "");
+                            String key = (name != null ? name : "") + "|" + clean;
+                            if (!seen.contains(key)) {
+                                seen.add(key);
+                                WritableMap map = Arguments.createMap();
+                                map.putString("recordID", id != null ? id : "");
+                                map.putString("displayName", name != null && !name.isEmpty() ? name : "Unknown Contact");
+                                map.putString("phoneNumber", number);
+                                map.putString("thumbnailPath", thumb != null ? thumb : "");
+                                array.pushMap(map);
+                            }
+                        }
+                    }
+                    cursor.close();
+                }
+                promise.resolve(array);
+            } catch (Exception e) {
+                Log.e(TAG, "getDeviceContacts error: " + e.getMessage());
+                promise.resolve(Arguments.createArray());
+            }
+        }).start();
+    }
+
+    /**
+     * Reads actual phone call logs from device CallLog.Calls
+     */
+    @ReactMethod
+    public void getDeviceCallLogs(int limit, Promise promise) {
+        new Thread(() -> {
+            try {
+                Context context = getReactApplicationContext();
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    promise.resolve(Arguments.createArray());
+                    return;
+                }
+
+                int queryLimit = (limit > 0 && limit <= 500) ? limit : 100;
+                ContentResolver cr = context.getContentResolver();
+                String sortOrder = CallLog.Calls.DATE + " DESC LIMIT " + queryLimit;
+
+                Cursor cursor = cr.query(
+                        CallLog.Calls.CONTENT_URI,
+                        new String[]{
+                                CallLog.Calls._ID,
+                                CallLog.Calls.CACHED_NAME,
+                                CallLog.Calls.NUMBER,
+                                CallLog.Calls.TYPE,
+                                CallLog.Calls.DATE,
+                                CallLog.Calls.DURATION
+                        },
+                        null, null,
+                        sortOrder
+                );
+
+                WritableArray array = Arguments.createArray();
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
+
+                if (cursor != null) {
+                    while (cursor.moveToNext()) {
+                        String id = cursor.getString(0);
+                        String name = cursor.getString(1);
+                        String number = cursor.getString(2);
+                        int type = cursor.getInt(3);
+                        long dateMs = cursor.getLong(4);
+                        long durationSecs = cursor.getLong(5);
+
+                        String typeName = "INCOMING";
+                        switch (type) {
+                            case CallLog.Calls.INCOMING_TYPE:
+                                typeName = "INCOMING";
+                                break;
+                            case CallLog.Calls.OUTGOING_TYPE:
+                                typeName = "OUTGOING";
+                                break;
+                            case CallLog.Calls.MISSED_TYPE:
+                                typeName = "MISSED";
+                                break;
+                            case CallLog.Calls.REJECTED_TYPE:
+                                typeName = "REJECTED";
+                                break;
+                            case CallLog.Calls.BLOCKED_TYPE:
+                                typeName = "BLOCKED";
+                                break;
+                            default:
+                                typeName = "INCOMING";
+                                break;
+                        }
+
+                        WritableMap map = Arguments.createMap();
+                        map.putString("id", id != null ? id : "");
+                        map.putString("callerName", name != null && !name.isEmpty() ? name : "Unknown Caller");
+                        map.putString("phoneNumber", number != null ? number : "");
+                        map.putString("callType", typeName);
+                        map.putDouble("timestampMs", (double) dateMs);
+                        map.putString("timestamp", sdf.format(new java.util.Date(dateMs)));
+                        map.putInt("durationSeconds", (int) durationSecs);
+                        map.putString("duration", String.format(Locale.US, "%02d:%02d", durationSecs / 60, durationSecs % 60));
+
+                        boolean isBlocked = (type == CallLog.Calls.BLOCKED_TYPE || type == CallLog.Calls.REJECTED_TYPE);
+                        int riskScore = isBlocked ? 85 : 0;
+                        try {
+                            if (number != null && !number.isEmpty()) {
+                                com.aepttas.shield.db.CallerEntity entity =
+                                        ShieldDatabase.getDatabase(context).callerDao().getByPhoneNumber(number);
+                                if (entity != null) {
+                                    isBlocked = isBlocked || entity.isBlocked;
+                                    riskScore = Math.max(riskScore, entity.riskScore);
+                                }
+                            }
+                        } catch (Exception ignore) {}
+
+                        map.putBoolean("isBlocked", isBlocked);
+                        map.putInt("riskScore", riskScore);
+                        map.putBoolean("isSpam", riskScore >= 70);
+
+                        array.pushMap(map);
+                    }
+                    cursor.close();
+                }
+                promise.resolve(array);
+            } catch (Exception e) {
+                Log.e(TAG, "getDeviceCallLogs error: " + e.getMessage());
+                promise.resolve(Arguments.createArray());
             }
         }).start();
     }

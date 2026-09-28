@@ -50,9 +50,7 @@ def spam_log(db: Session = Depends(get_db)):
         ]
     except Exception as e:
         logger.warning(f"Spam log fallback: {e}")
-        return [
-            {"phone_number": "+1 (202) 555-0143", "caller_name": "Suspected Robocall", "report_type": "Robocall", "reported_at": str(datetime.now()), "risk_score": 85}
-        ]
+        return []
 
 @router.post("/api/reports")
 @router.post("/api/caller-intel/{child_id}/report-call")

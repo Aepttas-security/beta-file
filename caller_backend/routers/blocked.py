@@ -51,10 +51,7 @@ def get_blocked(db: Session = Depends(get_db)):
         ]
     except Exception as e:
         logger.warning(f"Blocked fallback: {e}")
-        return [
-            {"phone_number": "+1 (800) 555-0199", "caller_name": "Robo-Loan Inc.", "block_reason": "Aggressive Spam Dialing", "block_date": "2026-06-02", "risk_score": 100},
-            {"phone_number": "+1 (866) 492-3001", "caller_name": "Imposter IRS Agent", "block_reason": "Scam Attempt", "block_date": "2026-06-03", "risk_score": 100}
-        ]
+        return []
 
 @router.post("/api/blocked")
 @router.post("/api/blocked-numbers")
