@@ -29,13 +29,15 @@ public class MainActivity extends ReactActivity {
         setTheme(R.style.AppTheme);
         super.onCreate(null);
 
-        try {
-            requestAllPermissions();
-            checkOverlayPermission();
-            checkCallScreeningRole();
-        } catch (Exception e) {
-            Log.e("MainActivity", "Error during initialization/permissions: " + e.getMessage());
-        }
+        getWindow().getDecorView().post(() -> {
+            try {
+                requestAllPermissions();
+                checkOverlayPermission();
+                checkCallScreeningRole();
+            } catch (Exception e) {
+                Log.e("MainActivity", "Error during initialization/permissions: " + e.getMessage());
+            }
+        });
 
         // One-time contact upload logic
         try {
@@ -127,7 +129,11 @@ public class MainActivity extends ReactActivity {
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
+        try {
+            super.onActivityResult(requestCode, resultCode, data);
+        } catch (Throwable t) {
+            Log.w("MainActivity", "Ignored onActivityResult soft exception: " + t.getMessage());
+        }
 
         if (requestCode == OVERLAY_PERMISSION_REQUEST_CODE) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
