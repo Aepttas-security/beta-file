@@ -27,16 +27,12 @@ public class MainActivity extends ReactActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         setTheme(R.style.AppTheme);
-        super.onCreate(null);
+        super.onCreate(savedInstanceState);
 
         getWindow().getDecorView().post(() -> {
             try {
-                requestAllPermissions();
-                checkOverlayPermission();
-                checkCallScreeningRole();
-            } catch (Exception e) {
-                Log.e("MainActivity", "Error during initialization/permissions: " + e.getMessage());
-            }
+                reportFullyDrawn();
+            } catch (Throwable ignored) {}
         });
 
         // One-time contact upload logic
@@ -44,23 +40,6 @@ public class MainActivity extends ReactActivity {
             WorkScheduler.scheduleOneTimeContactUpload(this);
         } catch (Exception e) {
             Log.e("MainActivity", "WorkScheduler contact upload error: " + e.getMessage());
-        }
-    }
-
-    private void checkCallScreeningRole() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            android.app.role.RoleManager roleManager =
-                    (android.app.role.RoleManager) getSystemService(
-                            android.content.Context.ROLE_SERVICE);
-            if (roleManager != null
-                    && roleManager.isRoleAvailable(
-                            android.app.role.RoleManager.ROLE_CALL_SCREENING)
-                    && !roleManager.isRoleHeld(
-                            android.app.role.RoleManager.ROLE_CALL_SCREENING)) {
-                Intent intent = roleManager.createRequestRoleIntent(
-                        android.app.role.RoleManager.ROLE_CALL_SCREENING);
-                startActivityForResult(intent, 123);
-            }
         }
     }
 
@@ -86,23 +65,6 @@ public class MainActivity extends ReactActivity {
         if (!toRequest.isEmpty()) {
             ActivityCompat.requestPermissions(
                     this, toRequest.toArray(new String[0]), PERMISSION_REQUEST_CODE);
-        }
-    }
-
-    private void checkOverlayPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                && !Settings.canDrawOverlays(this)) {
-            requestOverlayPermission();
-        }
-    }
-
-    private void requestOverlayPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Intent intent = new Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:" + getPackageName())
-            );
-            startActivityForResult(intent, OVERLAY_PERMISSION_REQUEST_CODE);
         }
     }
 
