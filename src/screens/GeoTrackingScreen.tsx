@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,6 +8,7 @@ import {
   Animated,
   Easing,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Line, Circle } from 'react-native-svg';
 import { useAppTheme } from '../contexts/ThemeContext';
@@ -15,6 +16,7 @@ import { colors } from '../styles/theme';
 import { Icon } from '../components/Icon';
 
 import { GeolocationRepository } from '../data/repository';
+import { locationService, UserLiveLocation } from '../services/LocationService';
 
 interface GeoRequest {
   ip: string;
@@ -29,6 +31,10 @@ interface GeoRequest {
   yPercent: number; // 0.0 to 1.0 (Y coordinate on map)
   latitude: string;
   longitude: string;
+  isUserLiveLocation?: boolean;
+  accuracy?: number;
+  provider?: string;
+  isMock?: boolean;
 }
 
 interface GeoTrackingScreenProps {
@@ -79,6 +85,9 @@ const mapBackendRecordToGeoRequest = (rec: any): GeoRequest => {
     yPercent,
     latitude: `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}`,
     longitude: `${Math.abs(lon).toFixed(4)}° ${lon >= 0 ? 'E' : 'W'}`,
+    accuracy: rec.accuracy,
+    provider: rec.provider,
+    isMock: rec.is_mock_location,
   };
 };
 
@@ -116,10 +125,68 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
 
   const [requestsList, setRequestsList] = useState<GeoRequest[]>(allRequests);
   const [selectedFilter, setSelectedFilter] = useState<'All' | '1H' | '24H' | '7D'>('All');
-  const [selectedRequest, setSelectedRequest] = useState<GeoRequest | null>(allRequests[1]); // Default to Amsterdam
+  const [selectedRequest, setSelectedRequest] = useState<GeoRequest | null>(null);
   const [dynamicNearbyPlaces, setDynamicNearbyPlaces] = useState<NearbyPlace[]>([]);
 
-  // Fetch live backend geolocation data
+  // User live location state
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<string>('Initializing live location detector...');
+  const [userLiveLocation, setUserLiveLocation] = useState<UserLiveLocation | null>(null);
+
+  /**
+   * Detects the user's real live location (via native GPS or network/IP)
+   */
+  const detectLiveLocation = useCallback(async (isManual = false) => {
+    setIsDetectingLocation(true);
+    setLocationStatus('Acquiring real-time GPS & network coordinates...');
+
+    try {
+      const live = await locationService.detectLiveLocation();
+      setUserLiveLocation(live);
+
+      const xPercent = Math.max(0.08, Math.min(0.92, (live.longitude + 180) / 360));
+      const yPercent = Math.max(0.1, Math.min(0.9, (90 - live.latitude) / 180));
+
+      const liveRequest: GeoRequest = {
+        ip: live.ip,
+        threatLevel: live.threatLevel,
+        country: live.country,
+        city: live.city,
+        isp: `${live.isp} (${live.provider})`,
+        latency: '8ms',
+        timeAgo: 'Live Now',
+        timeCategory: '1H',
+        xPercent,
+        yPercent,
+        latitude: live.latitudeStr,
+        longitude: live.longitudeStr,
+        isUserLiveLocation: true,
+        accuracy: live.accuracy,
+        provider: live.provider,
+        isMock: live.isMock,
+      };
+
+      setRequestsList(prev => {
+        const withoutUser = prev.filter(r => !r.isUserLiveLocation);
+        return [liveRequest, ...withoutUser];
+      });
+
+      setSelectedRequest(liveRequest);
+      setLocationStatus(`Live Location Fix: ${live.city}, ${live.country} (±${live.accuracy}m)`);
+    } catch (err: any) {
+      console.log('[GeoTrackingScreen] Live location detection error:', err);
+      setLocationStatus('Could not acquire live GPS. Tap Detect to retry.');
+    } finally {
+      setIsDetectingLocation(false);
+    }
+  }, []);
+
+  // Initial trigger for live location detection
+  useEffect(() => {
+    detectLiveLocation(false);
+  }, [detectLiveLocation]);
+
+  // Fetch backend geolocation history
   useEffect(() => {
     let isMounted = true;
     const fetchGeoData = async () => {
@@ -142,9 +209,12 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
         }
 
         if (isMounted && fetchedRequests.length > 0) {
-          const combined = [...fetchedRequests, ...allRequests];
-          setRequestsList(combined);
-          setSelectedRequest(combined[0]);
+          setRequestsList(prev => {
+            const userLive = prev.find(r => r.isUserLiveLocation);
+            const others = prev.filter(r => !r.isUserLiveLocation);
+            const combined = [...fetchedRequests, ...others];
+            return userLive ? [userLive, ...combined] : combined;
+          });
         }
       } catch (err) {
         console.log('Using default geolocation data:', err);
@@ -200,7 +270,6 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
   const pulseAnim = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
-    // Start radar rotation
     Animated.loop(
       Animated.timing(rotateAnim, {
         toValue: 1,
@@ -210,7 +279,6 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
       })
     ).start();
 
-    // Start marker pulse
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -235,15 +303,16 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
 
   const pulseScale = pulseAnim.interpolate({
     inputRange: [0.4, 1],
-    outputRange: [1, 2],
+    outputRange: [1, 2.2],
   });
 
   const pulseOpacity = pulseAnim.interpolate({
     inputRange: [0.4, 1],
-    outputRange: [0.8, 0],
+    outputRange: [0.85, 0],
   });
 
   const filteredRequests = requestsList.filter(req => {
+    if (req.isUserLiveLocation) return true; // Always show user live location
     if (selectedFilter === 'All') return true;
     if (selectedFilter === '1H') return req.timeCategory === '1H';
     if (selectedFilter === '24H') return req.timeCategory === '1H' || req.timeCategory === '24H';
@@ -252,7 +321,6 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
   });
 
   const renderContinentDot = (cx: number, cy: number, seed: number) => {
-    // Renders a cluster of small dots to resemble a continent
     const dots = [];
     const random = (s: number) => {
       const x = Math.sin(s++) * 10000;
@@ -288,18 +356,84 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
       <StatusBar barStyle="light-content" backgroundColor={colors.background} />
       <View style={styles.contentWrapper}>
 
-      {/* 1. TOP HEADER APP BAR WITH BACK BUTTON */}
+      {/* 1. TOP HEADER APP BAR WITH BACK & DETECT BUTTON */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
           <Icon name="arrow-back" color={colors.text} size={20} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>API Geolocation Tracker</Text>
-          <Text style={styles.headerSubtitle}>Live threat request map overview</Text>
+          <Text style={styles.headerTitle}>Live Geo Tracking</Text>
+          <Text style={styles.headerSubtitle}>Real-time GPS & network threat map</Text>
         </View>
+        <TouchableOpacity
+          style={[styles.detectBtn, isDetectingLocation && styles.detectBtnActive]}
+          onPress={() => detectLiveLocation(true)}
+          disabled={isDetectingLocation}
+        >
+          {isDetectingLocation ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <View style={styles.detectBtnInner}>
+              <Icon name="my-location" color="#fff" size={13} />
+              <Text style={styles.detectBtnText}>Detect Live</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
-      {/* 2. TIME RANGE FILTER BUTTONS */}
+      {/* 2. USER LIVE LOCATION STATUS BANNER */}
+      <View style={[styles.liveStatusCard, userLiveLocation?.isMock && styles.liveStatusCardWarning]}>
+        <View style={styles.liveStatusHeader}>
+          <View style={styles.liveStatusTitleRow}>
+            <View style={[styles.liveBeaconDot, { backgroundColor: isDetectingLocation ? colors.orangeWarning : colors.cyanAccent }]} />
+            <Text style={styles.liveStatusTitle}>
+              {isDetectingLocation ? 'DETECTING LIVE LOCATION...' : userLiveLocation ? 'YOUR LIVE LOCATION' : 'LOCATION TRACKER'}
+            </Text>
+          </View>
+          {userLiveLocation && (
+            <View style={[styles.accuracyBadge, { backgroundColor: colors.cyanAccent + '22' }]}>
+              <Text style={[styles.accuracyBadgeText, { color: colors.cyanAccent }]}>
+                {userLiveLocation.provider} • ±{userLiveLocation.accuracy}m
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <Text style={styles.livePlaceText}>
+          {userLiveLocation
+            ? `${userLiveLocation.city}, ${userLiveLocation.region ? userLiveLocation.region + ', ' : ''}${userLiveLocation.country}`
+            : locationStatus}
+        </Text>
+
+        {userLiveLocation && (
+          <View style={styles.liveMetaRow}>
+            <View style={styles.liveMetaCol}>
+              <Icon name="location-on" color={colors.purpleAccent} size={12} />
+              <Text style={styles.liveMetaText}>
+                {userLiveLocation.latitudeStr}, {userLiveLocation.longitudeStr}
+              </Text>
+            </View>
+            <View style={[
+              styles.spoofStatusPill,
+              { backgroundColor: userLiveLocation.isMock ? colors.redDanger + '25' : colors.greenSuccess + '25' }
+            ]}>
+              <Icon
+                name={userLiveLocation.isMock ? 'warning' : 'verified-user'}
+                color={userLiveLocation.isMock ? colors.redDanger : colors.greenSuccess}
+                size={11}
+              />
+              <Text style={[
+                styles.spoofStatusText,
+                { color: userLiveLocation.isMock ? colors.redDanger : colors.greenSuccess }
+              ]}>
+                {userLiveLocation.isMock ? 'Mock GPS Detected' : 'Authentic GPS Fix'}
+              </Text>
+            </View>
+          </View>
+        )}
+      </View>
+
+      {/* 3. TIME RANGE FILTER BUTTONS */}
       <View style={styles.filterRow}>
         {(['1H', '24H', '7D', 'All'] as const).map(filter => {
           const isActive = selectedFilter === filter;
@@ -309,8 +443,8 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
               style={[styles.filterBtn, isActive && styles.filterBtnActive]}
               onPress={() => {
                 setSelectedFilter(filter);
-                // Select first matching request if current is not in the filtered list
-                const matching = allRequests.filter(req => {
+                const matching = requestsList.filter(req => {
+                  if (req.isUserLiveLocation) return true;
                   if (filter === 'All') return true;
                   if (filter === '1H') return req.timeCategory === '1H';
                   if (filter === '24H') return req.timeCategory === '1H' || req.timeCategory === '24H';
@@ -330,11 +464,11 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
         })}
       </View>
 
-      {/* 3. INTERACTIVE MAP BOX */}
+      {/* 4. INTERACTIVE MAP BOX */}
       <View style={styles.mapContainer}>
         {/* Latitude/Longitude Grid Lines */}
         <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-          {/* Horizonal Lines */}
+          {/* Horizontal Lines */}
           {[1, 2, 3, 4, 5].map(i => (
             <Line
               key={`h-${i}`}
@@ -361,7 +495,7 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
             />
           ))}
 
-          {/* Continents Silhouettes */}
+          {/* Continent Silhouettes */}
           {renderContinentDot(mapWidth * 0.2, mapHeight * 0.35, 10)}
           {renderContinentDot(mapWidth * 0.3, mapHeight * 0.68, 20)}
           {renderContinentDot(mapWidth * 0.5, mapHeight * 0.38, 30)}
@@ -398,21 +532,24 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
         {/* Request Markers */}
         {filteredRequests.map((req) => {
           const isSelected = selectedRequest?.ip === req.ip;
-          const markerColor =
-            req.threatLevel === 'High Risk'
-              ? colors.redDanger
-              : req.threatLevel === 'Suspicious'
-              ? colors.orangeWarning
-              : colors.greenSuccess;
+          const isUser = req.isUserLiveLocation;
+          const markerColor = isUser
+            ? colors.cyanAccent
+            : req.threatLevel === 'High Risk'
+            ? colors.redDanger
+            : req.threatLevel === 'Suspicious'
+            ? colors.orangeWarning
+            : colors.greenSuccess;
 
           return (
             <TouchableOpacity
-              key={req.ip}
+              key={`${req.ip}-${isUser ? 'user' : 'node'}`}
               style={[
                 styles.markerContainer,
                 {
                   left: req.xPercent * mapWidth - 15,
                   top: req.yPercent * mapHeight - 15,
+                  zIndex: isUser ? 25 : 10,
                 },
               ]}
               onPress={() => setSelectedRequest(req)}
@@ -424,8 +561,9 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
                     styles.pulsingRing,
                     {
                       borderColor: markerColor,
-                      transform: [{ scale: isSelected ? pulseScale : 1.2 }],
-                      opacity: isSelected ? pulseOpacity : 0.3,
+                      borderWidth: isUser ? 2 : 1.5,
+                      transform: [{ scale: (isSelected || isUser) ? pulseScale : 1.2 }],
+                      opacity: (isSelected || isUser) ? pulseOpacity : 0.3,
                     },
                   ]}
                 />
@@ -434,49 +572,71 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
                   style={[
                     styles.markerDot,
                     { backgroundColor: markerColor },
-                    isSelected && styles.markerDotSelected,
+                    (isSelected || isUser) && styles.markerDotSelected,
+                    isUser && { backgroundColor: colors.cyanAccent, borderColor: '#fff' },
                   ]}
                 />
+                {isUser && (
+                  <View style={styles.userPinLabel}>
+                    <Text style={styles.userPinLabelText}>YOU</Text>
+                  </View>
+                )}
               </View>
             </TouchableOpacity>
           );
         })}
 
-        <Text style={styles.liveTrackingText}>Live Tracking: ACTIVE</Text>
-        <Text style={styles.gridCoordsText}>GRID: 104°W / 45°N</Text>
+        <Text style={styles.liveTrackingText}>
+          {isDetectingLocation ? 'LIVE TRACKING: ACQUIRING FIX...' : 'LIVE TRACKING: ACTIVE'}
+        </Text>
+        <Text style={styles.gridCoordsText}>
+          {userLiveLocation
+            ? `USER GPS: ${userLiveLocation.latitudeStr} / ${userLiveLocation.longitudeStr}`
+            : 'GRID: 104°W / 45°N'}
+        </Text>
       </View>
 
-      {/* 4. IP DETAILS PANEL */}
+      {/* 5. LOCATION / IP DETAILS PANEL */}
       {selectedRequest && (
         <View
           style={[
             styles.detailsCard,
-            selectedRequest.threatLevel === 'High Risk' && { borderColor: colors.redDanger + '55' },
+            selectedRequest.isUserLiveLocation
+              ? { borderColor: colors.cyanAccent + '70', backgroundColor: colors.cardBackground }
+              : selectedRequest.threatLevel === 'High Risk' && { borderColor: colors.redDanger + '55' },
           ]}
         >
           <View style={styles.detailsHeader}>
             <View style={styles.ipRow}>
-              <Icon name="dns" color={colors.cyanAccent} size={18} />
-              <Text style={styles.ipText}>{selectedRequest.ip}</Text>
+              <Icon
+                name={selectedRequest.isUserLiveLocation ? 'my-location' : 'dns'}
+                color={selectedRequest.isUserLiveLocation ? colors.cyanAccent : colors.cyanAccent}
+                size={18}
+              />
+              <Text style={styles.ipText}>
+                {selectedRequest.isUserLiveLocation ? 'Your Live Device' : selectedRequest.ip}
+              </Text>
             </View>
 
-            {/* Threat Level Badge */}
+            {/* Badge */}
             <View
               style={[
                 styles.badge,
                 {
-                  backgroundColor:
-                    selectedRequest.threatLevel === 'High Risk'
-                      ? colors.redDanger + '26'
-                      : selectedRequest.threatLevel === 'Suspicious'
-                      ? colors.orangeWarning + '26'
-                      : colors.greenSuccess + '26',
-                  borderColor:
-                    selectedRequest.threatLevel === 'High Risk'
-                      ? colors.redDanger
-                      : selectedRequest.threatLevel === 'Suspicious'
-                      ? colors.orangeWarning
-                      : colors.greenSuccess,
+                  backgroundColor: selectedRequest.isUserLiveLocation
+                    ? colors.cyanAccent + '25'
+                    : selectedRequest.threatLevel === 'High Risk'
+                    ? colors.redDanger + '26'
+                    : selectedRequest.threatLevel === 'Suspicious'
+                    ? colors.orangeWarning + '26'
+                    : colors.greenSuccess + '26',
+                  borderColor: selectedRequest.isUserLiveLocation
+                    ? colors.cyanAccent
+                    : selectedRequest.threatLevel === 'High Risk'
+                    ? colors.redDanger
+                    : selectedRequest.threatLevel === 'Suspicious'
+                    ? colors.orangeWarning
+                    : colors.greenSuccess,
                 },
               ]}
             >
@@ -484,16 +644,17 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
                 style={[
                   styles.badgeText,
                   {
-                    color:
-                      selectedRequest.threatLevel === 'High Risk'
-                        ? colors.redDanger
-                        : selectedRequest.threatLevel === 'Suspicious'
-                        ? colors.orangeWarning
-                        : colors.greenSuccess,
+                    color: selectedRequest.isUserLiveLocation
+                      ? colors.cyanAccent
+                      : selectedRequest.threatLevel === 'High Risk'
+                      ? colors.redDanger
+                      : selectedRequest.threatLevel === 'Suspicious'
+                      ? colors.orangeWarning
+                      : colors.greenSuccess,
                   },
                 ]}
               >
-                {selectedRequest.threatLevel.toUpperCase()}
+                {selectedRequest.isUserLiveLocation ? 'LIVE FIX' : selectedRequest.threatLevel.toUpperCase()}
               </Text>
             </View>
           </View>
@@ -511,7 +672,9 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
               </View>
             </View>
             <View style={styles.gridColumn}>
-              <Text style={styles.detailsLabel}>ORGANIZATION</Text>
+              <Text style={styles.detailsLabel}>
+                {selectedRequest.isUserLiveLocation ? 'NETWORK / PROVIDER' : 'ORGANIZATION'}
+              </Text>
               <Text style={styles.detailsValue} numberOfLines={1}>
                 {selectedRequest.isp}
               </Text>
@@ -520,17 +683,31 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
 
           <View style={[styles.detailsGrid, { marginTop: 12 }]}>
             <View style={styles.gridColumn}>
-              <Text style={styles.detailsLabel}>LATENCY</Text>
+              <Text style={styles.detailsLabel}>
+                {selectedRequest.isUserLiveLocation ? 'ACCURACY / LATENCY' : 'LATENCY'}
+              </Text>
               <View style={styles.latencyRow}>
                 <Icon name="speed" color={colors.greenSuccess} size={13} />
-                <Text style={styles.detailsValue}>{selectedRequest.latency}</Text>
+                <Text style={styles.detailsValue}>
+                  {selectedRequest.accuracy ? `±${selectedRequest.accuracy}m (${selectedRequest.latency})` : selectedRequest.latency}
+                </Text>
               </View>
             </View>
             <View style={styles.gridColumn}>
-              <Text style={styles.detailsLabel}>TIME DETECTED</Text>
+              <Text style={styles.detailsLabel}>
+                {selectedRequest.isUserLiveLocation ? 'SECURITY AUDIT' : 'TIME DETECTED'}
+              </Text>
               <View style={styles.timeRow}>
-                <Icon name="clock" color={colors.textMuted} size={13} />
-                <Text style={styles.detailsValue}>{selectedRequest.timeAgo}</Text>
+                <Icon
+                  name={selectedRequest.isUserLiveLocation ? 'verified-user' : 'clock'}
+                  color={selectedRequest.isMock ? colors.redDanger : colors.textMuted}
+                  size={13}
+                />
+                <Text style={[styles.detailsValue, selectedRequest.isMock && { color: colors.redDanger }]}>
+                  {selectedRequest.isUserLiveLocation
+                    ? (selectedRequest.isMock ? 'Mock GPS Alert' : 'Verified Authentic')
+                    : selectedRequest.timeAgo}
+                </Text>
               </View>
             </View>
           </View>
@@ -554,7 +731,9 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
 
           {/* Nearby Network Places List */}
           <View style={styles.cardDivider} />
-          <Text style={styles.detailsLabel}>NEARBY NETWORK PLACES</Text>
+          <Text style={styles.detailsLabel}>
+            {selectedRequest.isUserLiveLocation ? 'NEARBY EMERGENCY & NETWORK HUBS' : 'NEARBY NETWORK PLACES'}
+          </Text>
           <View style={styles.nearbyContainer}>
             {(dynamicNearbyPlaces.length > 0 ? dynamicNearbyPlaces : getNearbyPlaces(selectedRequest.ip)).map((place, idx) => (
               <View key={idx} style={styles.nearbyPlaceRow}>
@@ -569,40 +748,53 @@ export const GeoTrackingScreen: React.FC<GeoTrackingScreenProps> = ({ onBack }) 
         </View>
       )}
 
-      {/* 5. API REQUESTS SCROLLING LIST */}
-      <Text style={styles.listTitle}>Filtered API Logs ({filteredRequests.length})</Text>
+      {/* 6. API REQUESTS SCROLLING LIST */}
+      <Text style={styles.listTitle}>Tracked Geolocation Points ({filteredRequests.length})</Text>
 
       <FlatList
         data={filteredRequests}
-        keyExtractor={item => item.ip}
+        keyExtractor={(item, index) => `${item.ip}-${item.isUserLiveLocation ? 'user' : index}`}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => {
           const isSelected = selectedRequest?.ip === item.ip;
-          const alertColor =
-            item.threatLevel === 'High Risk'
-              ? colors.redDanger
-              : item.threatLevel === 'Suspicious'
-              ? colors.orangeWarning
-              : colors.greenSuccess;
+          const alertColor = item.isUserLiveLocation
+            ? colors.cyanAccent
+            : item.threatLevel === 'High Risk'
+            ? colors.redDanger
+            : item.threatLevel === 'Suspicious'
+            ? colors.orangeWarning
+            : colors.greenSuccess;
 
           return (
             <TouchableOpacity
               style={[
                 styles.logItem,
                 isSelected ? styles.logItemActive : styles.logItemInactive,
+                item.isUserLiveLocation && styles.logItemUser,
               ]}
               onPress={() => setSelectedRequest(item)}
             >
               <View style={[styles.logIndicator, { backgroundColor: alertColor }]} />
               <View style={styles.logTexts}>
-                <Text style={styles.logIp}>{item.ip}</Text>
+                <View style={styles.logIpRow}>
+                  <Text style={[styles.logIp, item.isUserLiveLocation && { color: colors.cyanAccent }]}>
+                    {item.isUserLiveLocation ? 'Your Live Location' : item.ip}
+                  </Text>
+                  {item.isUserLiveLocation && (
+                    <View style={styles.liveTag}>
+                      <Text style={styles.liveTagText}>YOU</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.logSub}>
                   {item.city}, {item.country}
                 </Text>
               </View>
               <View style={styles.logRightCol}>
                 <Text style={styles.logTime}>{item.timeAgo}</Text>
-                <Text style={styles.logLatency}>{item.latency}</Text>
+                <Text style={styles.logLatency}>
+                  {item.isUserLiveLocation && item.accuracy ? `±${item.accuracy}m` : item.latency}
+                </Text>
               </View>
             </TouchableOpacity>
           );
@@ -629,7 +821,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
   },
   backButton: {
     width: 40,
@@ -642,7 +834,8 @@ const getStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
   },
   headerTitleContainer: {
-    marginLeft: 16,
+    flex: 1,
+    marginLeft: 14,
   },
   headerTitle: {
     color: colors.text,
@@ -654,15 +847,112 @@ const getStyles = (colors: any) => StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
+  detectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.purpleAccent,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  detectBtnActive: {
+    opacity: 0.8,
+  },
+  detectBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detectBtnText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 5,
+  },
+  liveStatusCard: {
+    backgroundColor: colors.cardBackground,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 6,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.cyanAccent + '40',
+  },
+  liveStatusCardWarning: {
+    borderColor: colors.redDanger + '60',
+  },
+  liveStatusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  liveStatusTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  liveBeaconDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  liveStatusTitle: {
+    color: colors.cyanAccent,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  accuracyBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  accuracyBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  livePlaceText: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  liveMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  liveMetaCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  liveMetaText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    marginLeft: 4,
+  },
+  spoofStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  spoofStatusText: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginLeft: 3,
+  },
   filterRow: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     justifyContent: 'space-between',
   },
   filterBtn: {
     flex: 0.23,
-    height: 38,
+    height: 34,
     borderRadius: 8,
     backgroundColor: colors.cardBackground,
     borderWidth: 1,
@@ -676,7 +966,7 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   filterBtnText: {
     color: colors.textMuted,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 'bold',
   },
   filterBtnTextActive: {
@@ -686,8 +976,8 @@ const getStyles = (colors: any) => StyleSheet.create({
     width: 320,
     height: 220,
     alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 12,
+    marginTop: 6,
+    marginBottom: 8,
     borderRadius: 20,
     backgroundColor: colors.cardBackground,
     borderWidth: 1,
@@ -727,31 +1017,44 @@ const getStyles = (colors: any) => StyleSheet.create({
     height: 12,
     borderRadius: 6,
   },
+  userPinLabel: {
+    position: 'absolute',
+    top: -14,
+    backgroundColor: colors.cyanAccent,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  userPinLabelText: {
+    color: '#000',
+    fontSize: 8,
+    fontWeight: '900',
+  },
   liveTrackingText: {
     position: 'absolute',
-    top: 12,
-    left: 12,
+    top: 10,
+    left: 10,
     fontSize: 9,
     fontWeight: 'bold',
     color: colors.greenSuccess,
-    opacity: 0.8,
+    opacity: 0.9,
   },
   gridCoordsText: {
     position: 'absolute',
-    bottom: 12,
-    right: 12,
+    bottom: 8,
+    right: 10,
     fontSize: 9,
     color: colors.textMuted,
-    opacity: 0.6,
+    opacity: 0.7,
   },
   detailsCard: {
     backgroundColor: colors.cardBackground,
-    marginHorizontal: 24,
+    marginHorizontal: 16,
     marginVertical: 4,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 16,
+    padding: 14,
   },
   detailsHeader: {
     flexDirection: 'row',
@@ -764,7 +1067,7 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   ipText: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     marginLeft: 8,
   },
@@ -781,7 +1084,7 @@ const getStyles = (colors: any) => StyleSheet.create({
   cardDivider: {
     height: 1,
     backgroundColor: colors.border,
-    marginVertical: 12,
+    marginVertical: 10,
   },
   detailsGrid: {
     flexDirection: 'row',
@@ -794,7 +1097,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     color: colors.textMuted,
     fontSize: 9,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   locationRow: {
     flexDirection: 'row',
@@ -810,7 +1113,7 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   detailsValue: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     marginLeft: 4,
   },
@@ -818,12 +1121,12 @@ const getStyles = (colors: any) => StyleSheet.create({
     color: colors.text,
     fontSize: 14,
     fontWeight: 'bold',
-    marginHorizontal: 24,
-    marginTop: 18,
-    marginBottom: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 6,
   },
   listContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 24,
   },
   logItem: {
@@ -831,8 +1134,8 @@ const getStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
     borderRadius: 12,
     borderWidth: 1,
-    padding: 12,
-    marginBottom: 8,
+    padding: 10,
+    marginBottom: 6,
   },
   logItemActive: {
     backgroundColor: colors.cardBackground + '80',
@@ -842,6 +1145,10 @@ const getStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.cardBackground,
     borderColor: colors.border,
   },
+  logItemUser: {
+    borderColor: colors.cyanAccent + '60',
+    backgroundColor: colors.cardBackground,
+  },
   logIndicator: {
     width: 10,
     height: 10,
@@ -849,12 +1156,28 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   logTexts: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 10,
+  },
+  logIpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   logIp: {
     color: colors.text,
     fontSize: 13,
     fontWeight: 'bold',
+  },
+  liveTag: {
+    backgroundColor: colors.cyanAccent,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    marginLeft: 6,
+  },
+  liveTagText: {
+    color: '#000',
+    fontSize: 8,
+    fontWeight: '900',
   },
   logSub: {
     color: colors.textMuted,
@@ -875,13 +1198,13 @@ const getStyles = (colors: any) => StyleSheet.create({
     marginTop: 2,
   },
   nearbyContainer: {
-    marginTop: 6,
+    marginTop: 4,
   },
   nearbyPlaceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 4,
+    marginVertical: 3,
   },
   nearbyPlaceLeft: {
     flexDirection: 'row',
@@ -889,12 +1212,12 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   nearbyPlaceName: {
     color: colors.text,
-    fontSize: 12,
+    fontSize: 11,
     marginLeft: 6,
   },
   nearbyPlaceDistance: {
     color: colors.textMuted,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '500',
   },
 });

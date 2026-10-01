@@ -17,6 +17,7 @@ public class CallDetectionPackage implements ReactPackage {
         List<NativeModule> modules = new ArrayList<>();
         modules.add(new CallDetectionModule(reactContext));
         modules.add(new CallerDirectoryModule(reactContext));
+        modules.add(new LocationModule(reactContext));
         return modules;
     }
 

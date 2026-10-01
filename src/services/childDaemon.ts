@@ -34,16 +34,27 @@ class ChildDaemonService {
   private async sendTelemetryTick(): Promise<void> {
     try {
       const childId = await Storage.getChildId() || '1';
-      // Simulate raw decimal latitude & longitude hardware reading
-      const simulatedLat = 13.0827 + (Math.random() - 0.5) * 0.005;
-      const simulatedLng = 80.2707 + (Math.random() - 0.5) * 0.005;
+      let liveLat = 13.0827 + (Math.random() - 0.5) * 0.005;
+      let liveLng = 80.2707 + (Math.random() - 0.5) * 0.005;
+      let locationLabel = 'Live Telemetry Location Ping';
+
+      try {
+        const { locationService } = require('./LocationService');
+        const live = await locationService.detectLiveLocation();
+        if (live && live.latitude && live.longitude) {
+          liveLat = live.latitude;
+          liveLng = live.longitude;
+          locationLabel = `${live.city}, ${live.country} (${live.provider})`;
+        }
+      } catch {}
+
       const simulatedBattery = Math.floor(80 + Math.random() * 15);
 
       await ParentalRepository.pingLocation(
         childId,
-        simulatedLat,
-        simulatedLng,
-        'Live Telemetry Location Ping',
+        liveLat,
+        liveLng,
+        locationLabel,
         simulatedBattery
       );
       console.log('[ChildDaemon] Telemetry sent for child:', childId);
