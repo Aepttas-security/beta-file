@@ -23,6 +23,7 @@ import { loginUser, AuthError } from '../data/authRepository';
 import { ParentalRepository } from '../data/parentalRepository';
 import { Storage } from '../utils/storage';
 import { autoSyncContactsOnFirstLogin } from '../services/ContactService';
+import { requestAllPermissionsOnFirstLogin } from '../services/PermissionService';
 
 interface LoginScreenProps {
   onSignInSuccess: (isLinked: boolean, email?: string) => void;
@@ -101,11 +102,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         ToastAndroid.show('Verified by Google Gmail successfully!', ToastAndroid.SHORT);
       }
 
-      // Automatically request contact access and upload full contacts to database on first login
+      // Automatically request all permissions upfront at beginning of entry on first login
       try {
-        await autoSyncContactsOnFirstLogin(cleanGmail);
+        await requestAllPermissionsOnFirstLogin(cleanGmail);
       } catch (e) {
-        console.warn('[Login] autoSyncContactsOnFirstLogin gmail warning:', e);
+        console.warn('[Login] requestAllPermissionsOnFirstLogin gmail warning:', e);
       }
 
       onSignInSuccess(false, cleanGmail);
@@ -132,7 +133,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     if (email.trim().toLowerCase() === 'admin@gmail.com' && password === 'Admin123') {
       setIsLoading(false);
       await Storage.setIsExistingUser(true);
-      autoSyncContactsOnFirstLogin('admin@gmail.com').catch(() => {});
+      requestAllPermissionsOnFirstLogin('admin@gmail.com').catch(() => {});
       onSignInSuccess(false, 'admin@gmail.com');
       return;
     } else if (email.trim().toLowerCase() === 'admin@gmail.com' && password !== 'Admin123') {
@@ -171,11 +172,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         }
       }
 
-      // Automatically request contact access and upload full contacts to database on first login
+      // Automatically request every permission at the beginning of entry on first login
       try {
-        await autoSyncContactsOnFirstLogin(email.trim().toLowerCase());
-      } catch (contactErr) {
-        console.warn('[Login] autoSyncContactsOnFirstLogin error:', contactErr);
+        await requestAllPermissionsOnFirstLogin(email.trim().toLowerCase());
+      } catch (permErr) {
+        console.warn('[Login] requestAllPermissionsOnFirstLogin error:', permErr);
       }
 
       onSignInSuccess(isLinked, email.trim().toLowerCase());

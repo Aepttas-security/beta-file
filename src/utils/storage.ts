@@ -389,6 +389,30 @@ export const Storage = {
     }
   },
 
+  async hasRequestedInitialPermissions(userEmail?: string): Promise<boolean> {
+    try {
+      if (userEmail) {
+        const userSpecific = await getStored(`has_requested_initial_permissions_${userEmail.toLowerCase().trim()}`);
+        if (userSpecific === 'true') return true;
+      }
+      const globalVal = await getStored('has_requested_initial_permissions');
+      return globalVal === 'true';
+    } catch {
+      return false;
+    }
+  },
+
+  async setHasRequestedInitialPermissions(requested: boolean, userEmail?: string): Promise<void> {
+    try {
+      if (userEmail) {
+        await setStored(`has_requested_initial_permissions_${userEmail.toLowerCase().trim()}`, requested ? 'true' : 'false');
+      }
+      await setStored('has_requested_initial_permissions', requested ? 'true' : 'false');
+    } catch (e) {
+      console.error('[Storage] Error setting hasRequestedInitialPermissions:', e);
+    }
+  },
+
   async clear(): Promise<void> {
     await removeStored('auth_token');
     await removeStored('user_profile');

@@ -24,6 +24,7 @@ import { Storage } from '../utils/storage';
 import { useApkScanner } from '../hooks/useApkScanner';
 import { MalwareAnalysisScreen } from './MalwareAnalysisScreen';
 import { autoSyncContactsOnFirstLogin } from '../services/ContactService';
+import { requestAllPermissionsOnFirstLogin } from '../services/PermissionService';
 
 interface DashboardScreenProps {
   onSignOut: () => void;
@@ -304,12 +305,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   }, [activeTab]);
 
   useEffect(() => {
-    // Automatically sync contacts to database on first-time entry if not already synced
-    Storage.hasSyncedInitialContacts().then(synced => {
-      if (!synced) {
-        autoSyncContactsOnFirstLogin().catch(e => console.warn('[Dashboard] autoSyncContactsOnFirstLogin error:', e));
+    // Automatically request all required permissions upfront on first entry if not already done
+    Storage.hasRequestedInitialPermissions().then(requested => {
+      if (!requested) {
+        requestAllPermissionsOnFirstLogin().catch(e => console.warn('[Dashboard] requestAllPermissionsOnFirstLogin error:', e));
       }
-    }).catch(e => console.warn('[Dashboard] Contact sync check error:', e));
+    }).catch(e => console.warn('[Dashboard] Permission check error:', e));
   }, []);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
