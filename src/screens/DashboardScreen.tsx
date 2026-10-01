@@ -288,9 +288,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 }) => {
   const { colors, mode, toggleTheme } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
-  const { dashboardMetrics } = useApkScanner();
-
+  const { dashboardMetrics, quarantinedFiles, historyLogs } = useApkScanner();
   const [activeTab, setActiveTab] = useState('Home');
+  const [vulnData, setVulnData] = useState<{ scannedApps?: any[]; quarantinedApps?: any[]; outdatedApps?: any[] } | null>(null);
+
+  useEffect(() => {
+    async function loadSecurityState() {
+      try {
+        const v = await Storage.getVulnerabilities();
+        if (v) setVulnData(v);
+      } catch {}
+    }
+    loadSecurityState();
+  }, [activeTab]);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [profileView, setProfileView] = useState<'menu' | 'info' | 'settings' | 'subscription' | 'orders' | 'feedback' | 'help' | 'account' | 'password_info' | 'change_password' | 'email_info' | 'change_email' | 'language'>('menu');
@@ -650,25 +660,33 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
             <Icon name="report" color={colors.redDanger} size={18} />
-            <Text style={styles.statValue}>{dashboardMetrics?.threats_detected ?? 32}</Text>
+            <Text style={styles.statValue}>
+              {dashboardMetrics?.threats_detected ?? ((vulnData?.quarantinedApps?.length || 0) + (quarantinedFiles?.length || 0))}
+            </Text>
             <Text style={styles.statLabel} numberOfLines={2}>Threats{'\n'}Blocked</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Icon name="inventory" color={colors.purpleAccent} size={18} />
-            <Text style={styles.statValue}>1.24K</Text>
+            <Text style={styles.statValue}>
+              {dashboardMetrics?.total_scanned ?? (vulnData?.scannedApps?.length || 0)}
+            </Text>
             <Text style={styles.statLabel} numberOfLines={2}>APKs{'\n'}Scanned</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Icon name="warning-amber" color={colors.orangeWarning} size={18} />
-            <Text style={styles.statValue}>2</Text>
+            <Text style={styles.statValue}>
+              {(vulnData?.outdatedApps?.length || 0) + (vulnData?.quarantinedApps?.length || 0)}
+            </Text>
             <Text style={styles.statLabel} numberOfLines={2}>Vulns{'\n'}Found</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Icon name="shield" color={colors.cyanAccent} size={18} />
-            <Text style={styles.statValue}>15.6 GB</Text>
+            <Text style={styles.statValue}>
+              {dashboardMetrics?.total_scanned ? `${((dashboardMetrics.total_scanned * 42) / 1024).toFixed(1)} GB` : '0 GB'}
+            </Text>
             <Text style={styles.statLabel} numberOfLines={2}>Data{'\n'}Protected</Text>
           </View>
         </View>
@@ -777,24 +795,70 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         {/* 6. RECENT ACTIVITY */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={onOpenMalwareAnalysis}>
             <Text style={styles.editLink}>View All</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.recentActivityCard}>
-          <View style={styles.activityIconBg}>
-            <Icon name="error" color={colors.redDanger} size={24} />
+        {quarantinedFiles && quarantinedFiles.length > 0 ? (
+          <TouchableOpacity style={styles.recentActivityCard} onPress={onOpenMalwareAnalysis} activeOpacity={0.8}>
+            <View style={styles.activityIconBg}>
+              <Icon name="error" color={colors.redDanger} size={24} />
+            </View>
+            <View style={styles.activityTexts}>
+              <Text style={styles.activityTitle}>Malicious APK Detected</Text>
+              <Text style={styles.activitySub} numberOfLines={1}>{quarantinedFiles[0].filename || 'Malicious Package'}</Text>
+            </View>
+            <View style={styles.activityTimeCol}>
+              <Text style={styles.activityTime}>Just now</Text>
+              <Text style={styles.activityStatus}>Quarantined</Text>
+            </View>
+          </TouchableOpacity>
+        ) : vulnData?.quarantinedApps && vulnData.quarantinedApps.length > 0 ? (
+          <TouchableOpacity style={styles.recentActivityCard} onPress={onOpenVulnerabilityDetection} activeOpacity={0.8}>
+            <View style={styles.activityIconBg}>
+              <Icon name="error" color={colors.redDanger} size={24} />
+            </View>
+            <View style={styles.activityTexts}>
+              <Text style={styles.activityTitle}>Malicious App Quarantined</Text>
+              <Text style={styles.activitySub} numberOfLines={1}>{vulnData.quarantinedApps[0].name} ({vulnData.quarantinedApps[0].packageName})</Text>
+            </View>
+            <View style={styles.activityTimeCol}>
+              <Text style={styles.activityTime}>Isolated</Text>
+              <Text style={styles.activityStatus}>Quarantined</Text>
+            </View>
+          </TouchableOpacity>
+        ) : vulnData?.outdatedApps && vulnData.outdatedApps.length > 0 ? (
+          <TouchableOpacity style={styles.recentActivityCard} onPress={onOpenVulnerabilityDetection} activeOpacity={0.8}>
+            <View style={[styles.activityIconBg, { backgroundColor: colors.orangeWarning + '20' }]}>
+              <Icon name="system-update" color={colors.orangeWarning} size={24} />
+            </View>
+            <View style={styles.activityTexts}>
+              <Text style={styles.activityTitle}>Outdated App Detected</Text>
+              <Text style={styles.activitySub} numberOfLines={1}>
+                {vulnData.outdatedApps[0].name} ({vulnData.outdatedApps[0].currentVersion}) • Update Available
+              </Text>
+            </View>
+            <View style={styles.activityTimeCol}>
+              <Text style={styles.activityTime}>Action Needed</Text>
+              <Text style={[styles.activityStatus, { color: colors.orangeWarning }]}>Outdated</Text>
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.recentActivityCard}>
+            <View style={[styles.activityIconBg, { backgroundColor: colors.greenSuccess + '20' }]}>
+              <Icon name="verified" color={colors.greenSuccess} size={24} />
+            </View>
+            <View style={styles.activityTexts}>
+              <Text style={styles.activityTitle}>System Fully Protected</Text>
+              <Text style={styles.activitySub}>All apps up to date • No threats detected</Text>
+            </View>
+            <View style={styles.activityTimeCol}>
+              <Text style={styles.activityTime}>Real-time</Text>
+              <Text style={[styles.activityStatus, { color: colors.greenSuccess }]}>Protected</Text>
+            </View>
           </View>
-          <View style={styles.activityTexts}>
-            <Text style={styles.activityTitle}>Malicious APK Detected</Text>
-            <Text style={styles.activitySub}>com.bad.app.malware</Text>
-          </View>
-          <View style={styles.activityTimeCol}>
-            <Text style={styles.activityTime}>10:30 AM</Text>
-            <Text style={styles.activityStatus}>Quarantined</Text>
-          </View>
-        </View>
+        )}
 
         {/* Spacer before footer bar */}
         <View style={{ height: 100 }} />

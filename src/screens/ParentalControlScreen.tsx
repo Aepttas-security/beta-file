@@ -675,7 +675,7 @@ export const ParentalControlScreen: React.FC<ParentalControlScreenProps> = ({ on
                     <View style={styles.profileInfo}>
                       <Text style={styles.profileName} numberOfLines={1}>{profile.name}</Text>
                       <Text style={styles.profileSub} numberOfLines={1}>
-                        {profile.age} yrs • {profile.deviceName || profile.device}
+                        {profile.age} yrs • {(profile.is_device_linked || profile.status === 'LINKED') ? (profile.deviceName || profile.device || 'Connected') : 'Not Connected'}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -872,108 +872,199 @@ export const ParentalControlScreen: React.FC<ParentalControlScreenProps> = ({ on
           <ScrollView contentContainerStyle={styles.viewContent}>
         {activeTab === 'Overview' && (
           <View style={{ width: '100%' }}>
-            {/* Status Card */}
-            <View style={styles.deviceStatusCard}>
-              <View style={styles.deviceStatusRow}>
-                <View
-                  style={[
-                    styles.statusDot,
-                    { backgroundColor: deviceLocked ? colors.redDanger : colors.greenSuccess },
-                  ]}
-                />
-                <View style={styles.deviceStatusTexts}>
-                  <Text style={styles.statusTitle}>
-                    {deviceLocked ? 'Device Blocked (Locked)' : `${activeChild.name}'s Device Connected`}
-                  </Text>
-                  <Text style={styles.statusSub}>
-                    {activeChild.deviceName || activeChild.device || 'Android Device'} • {activeChild.osType || activeChild.os_type || 'Android'}
-                  </Text>
-                  <Text style={[styles.statusSub, { marginTop: 3, color: colors.cyanAccent, fontWeight: '600' }]}>
-                    Battery: {activeChild.batteryLevel || 95}% • Linked via Link-Code
-                  </Text>
-                </View>
-              </View>
-              <Icon
-                name={(activeChild.batteryLevel || 95) > 80 ? 'battery-full' : 'battery-alert'}
-                color={(activeChild.batteryLevel || 95) > 20 ? colors.greenSuccess : colors.redDanger}
-                size={26}
-              />
-            </View>
-
-            {/* Screen Time Ring */}
-            <View style={styles.overviewGaugeCard}>
-              <Text style={styles.gaugeHeader}>DAILY SCREEN TIME</Text>
-              <View style={styles.overviewGaugeContainer}>
-                <Svg width={150} height={150} viewBox="0 0 120 120">
-                  <G rotation="135" origin="60, 60">
-                    <Circle
-                      cx="60"
-                      cy="60"
-                      r={radius}
-                      stroke={colors.border}
-                      strokeWidth={strokeWidth}
-                      fill="none"
-                      strokeDasharray={`${(270 / 360) * circumference} ${circumference}`}
-                      strokeLinecap="round"
-                    />
-                    <Circle
-                      cx="60"
-                      cy="60"
-                      r={radius}
-                      stroke={colors.pinkAccent}
-                      strokeWidth={strokeWidth}
-                      fill="none"
-                      strokeDasharray={circumference}
-                      strokeDashoffset={strokeDashoffset}
-                      strokeLinecap="round"
-                    />
-                  </G>
-                </Svg>
-                <View style={styles.overviewGaugeTexts}>
-                  <Text style={styles.usageHourText}>
-                    {Math.floor(activeChild.currentUsageMinutes / 60)}h{' '}
-                    {activeChild.currentUsageMinutes % 60}m
-                  </Text>
-                  <Text style={styles.limitLabelText}>of {currentLimitMinutes / 60}h limit</Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={[styles.remoteLockBtn, { backgroundColor: deviceLocked ? colors.greenSuccess : colors.redDanger }]}
-                onPress={() => changeDeviceLock(!deviceLocked)}
-              >
-                <Icon name={deviceLocked ? 'lock-open' : 'lock'} color={colors.text} size={18} />
-                <Text style={styles.remoteLockBtnText}>
-                  {deviceLocked ? 'Unlock Child Device Now' : 'Lock Child Device Remotely'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* App Usage List */}
-            <Text style={styles.blockSectionTitle}>Most Used Apps Today</Text>
-            {activeChild.appUsage && activeChild.appUsage.length > 0 ? (
-              activeChild.appUsage.map((usage: any) => (
-                <View key={usage.name} style={styles.usageRow}>
-                  <View style={styles.usageLeft}>
-                    <View style={[styles.appIconContainer, { backgroundColor: (usage.color || colors.purpleAccent) + '22' }]}>
-                      <Icon
-                        name="apps"
-                        color={usage.color || colors.purpleAccent}
-                        size={20}
-                      />
-                    </View>
-                    <Text style={styles.appName}>{usage.name}</Text>
+            {!(activeChild.is_device_linked || activeChild.status === 'LINKED') ? (
+              <View style={[styles.linkCard, { marginTop: 8, padding: 20 }]}>
+                <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                  <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.orangeWarning + '20', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                    <Icon name="phonelink-erase" color={colors.orangeWarning} size={30} />
                   </View>
-                  <Text style={styles.appDuration}>{usage.time || '0m'}</Text>
+                  <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', textAlign: 'center' }}>
+                    {activeChild.name}'s Device Not Connected
+                  </Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 18, paddingHorizontal: 8 }}>
+                    This child profile is waiting for device connection. Open the Shield app on {activeChild.name}'s phone and enter the linking code below.
+                  </Text>
                 </View>
-              ))
-            ) : (
-              <View style={{ padding: 16, backgroundColor: colors.cardBackgroundLight, borderRadius: 12, alignItems: 'center', marginBottom: 16 }}>
-                <Icon name="access-time" color={colors.textMuted} size={24} />
-                <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 6 }}>
-                  No app activity recorded for this child profile today.
-                </Text>
+
+                <View style={[styles.codeContainer, { marginVertical: 14 }]}>
+                  <Text style={styles.codeLabel}>LINKING CODE FOR {activeChild.name.toUpperCase()}</Text>
+                  <Text style={[styles.codeText, { letterSpacing: 4 }]}>
+                    {activeChild.linking_code || pairingCode || '819-860'}
+                  </Text>
+                  <Text style={styles.codeSub}>Enter this code on the child's phone in Child Mode</Text>
+                </View>
+
+                <View style={{ backgroundColor: colors.cardBackgroundLight, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 18 }}>
+                  <Text style={{ color: colors.text, fontSize: 13, fontWeight: 'bold', marginBottom: 6 }}>Steps to connect:</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 20 }}>
+                    1. Open Aepttas Shield on {activeChild.name}'s device.{'\n'}
+                    2. Choose "Child Device" mode.{'\n'}
+                    3. Enter child name and linking code: <Text style={{ color: colors.cyanAccent, fontWeight: 'bold' }}>{activeChild.linking_code || pairingCode || '819-860'}</Text>.{'\n'}
+                    4. Telemetry and controls will connect automatically.
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.primaryBtn, { backgroundColor: colors.redDanger + '20', borderWidth: 1, borderColor: colors.redDanger, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }]}
+                  onPress={async () => {
+                    if (Platform.OS === 'web') {
+                      const ok = typeof (globalThis as any).confirm === 'function' ? (globalThis as any).confirm(`Remove ${activeChild.name}'s profile?`) : true;
+                      if (ok) {
+                        await unlinkChildDevice(activeChild.id);
+                      }
+                    } else {
+                      Alert.alert(
+                        'Remove Child Profile',
+                        `Are you sure you want to sign out and remove ${activeChild.name}'s profile?`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Remove Profile', style: 'destructive', onPress: () => unlinkChildDevice(activeChild.id) }
+                        ]
+                      );
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Icon name="delete" color={colors.redDanger} size={16} />
+                  <Text style={[styles.primaryBtnText, { color: colors.redDanger, marginLeft: 8 }]}>
+                    Sign Out & Remove Child Profile
+                  </Text>
+                </TouchableOpacity>
               </View>
+            ) : (
+              <>
+                {/* Status Card */}
+                <View style={styles.deviceStatusCard}>
+                  <View style={styles.deviceStatusRow}>
+                    <View
+                      style={[
+                        styles.statusDot,
+                        { backgroundColor: deviceLocked ? colors.redDanger : colors.greenSuccess },
+                      ]}
+                    />
+                    <View style={styles.deviceStatusTexts}>
+                      <Text style={styles.statusTitle}>
+                        {deviceLocked ? 'Device Blocked (Locked)' : `${activeChild.name}'s Device Connected`}
+                      </Text>
+                      <Text style={styles.statusSub}>
+                        {activeChild.deviceName || activeChild.device || 'Android Device'} • {activeChild.osType || activeChild.os_type || 'Android'}
+                      </Text>
+                      <Text style={[styles.statusSub, { marginTop: 3, color: colors.cyanAccent, fontWeight: '600' }]}>
+                        Battery: {activeChild.batteryLevel != null ? `${activeChild.batteryLevel}%` : 'Normal'} • Linked via Link-Code
+                      </Text>
+                    </View>
+                  </View>
+                  <Icon
+                    name={(activeChild.batteryLevel || 95) > 80 ? 'battery-full' : 'battery-alert'}
+                    color={(activeChild.batteryLevel || 95) > 20 ? colors.greenSuccess : colors.redDanger}
+                    size={26}
+                  />
+                </View>
+
+                {/* Screen Time Ring */}
+                <View style={styles.overviewGaugeCard}>
+                  <Text style={styles.gaugeHeader}>DAILY SCREEN TIME</Text>
+                  <View style={styles.overviewGaugeContainer}>
+                    <Svg width={150} height={150} viewBox="0 0 120 120">
+                      <G rotation="135" origin="60, 60">
+                        <Circle
+                          cx="60"
+                          cy="60"
+                          r={radius}
+                          stroke={colors.border}
+                          strokeWidth={strokeWidth}
+                          fill="none"
+                          strokeDasharray={`${(270 / 360) * circumference} ${circumference}`}
+                          strokeLinecap="round"
+                        />
+                        <Circle
+                          cx="60"
+                          cy="60"
+                          r={radius}
+                          stroke={colors.pinkAccent}
+                          strokeWidth={strokeWidth}
+                          fill="none"
+                          strokeDasharray={circumference}
+                          strokeDashoffset={strokeDashoffset}
+                          strokeLinecap="round"
+                        />
+                      </G>
+                    </Svg>
+                    <View style={styles.overviewGaugeTexts}>
+                      <Text style={styles.usageHourText}>
+                        {Math.floor(activeChild.currentUsageMinutes / 60)}h{' '}
+                        {activeChild.currentUsageMinutes % 60}m
+                      </Text>
+                      <Text style={styles.limitLabelText}>of {currentLimitMinutes / 60}h limit</Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.remoteLockBtn, { backgroundColor: deviceLocked ? colors.greenSuccess : colors.redDanger }]}
+                    onPress={() => changeDeviceLock(!deviceLocked)}
+                  >
+                    <Icon name={deviceLocked ? 'lock-open' : 'lock'} color={colors.text} size={18} />
+                    <Text style={styles.remoteLockBtnText}>
+                      {deviceLocked ? 'Unlock Child Device Now' : 'Lock Child Device Remotely'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* App Usage List */}
+                <Text style={styles.blockSectionTitle}>Most Used Apps Today</Text>
+                {activeChild.appUsage && activeChild.appUsage.length > 0 ? (
+                  activeChild.appUsage.map((usage: any) => (
+                    <View key={usage.name} style={styles.usageRow}>
+                      <View style={styles.usageLeft}>
+                        <View style={[styles.appIconContainer, { backgroundColor: (usage.color || colors.purpleAccent) + '22' }]}>
+                          <Icon
+                            name="apps"
+                            color={usage.color || colors.purpleAccent}
+                            size={20}
+                          />
+                        </View>
+                        <Text style={styles.appName}>{usage.name}</Text>
+                      </View>
+                      <Text style={styles.appDuration}>{usage.time || '0m'}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <View style={{ padding: 16, backgroundColor: colors.cardBackgroundLight, borderRadius: 12, alignItems: 'center', marginBottom: 16 }}>
+                    <Icon name="access-time" color={colors.textMuted} size={24} />
+                    <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 6 }}>
+                      No app activity recorded for this child profile today.
+                    </Text>
+                  </View>
+                )}
+
+                {/* Direct Sign Out / Unlink Button for Connected Device */}
+                <TouchableOpacity
+                  style={[styles.primaryBtn, { backgroundColor: colors.redDanger + '20', borderWidth: 1, borderColor: colors.redDanger, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12, marginBottom: 24 }]}
+                  onPress={async () => {
+                    if (Platform.OS === 'web') {
+                      const ok = typeof (globalThis as any).confirm === 'function' ? (globalThis as any).confirm(`Sign out and disconnect ${activeChild.name}'s device?`) : true;
+                      if (ok) {
+                        await unlinkChildDevice(activeChild.id);
+                      }
+                    } else {
+                      Alert.alert(
+                        'Sign Out Child Device',
+                        `Are you sure you want to disconnect and remove ${activeChild.name}'s profile?`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Sign Out Device', style: 'destructive', onPress: () => unlinkChildDevice(activeChild.id) }
+                        ]
+                      );
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Icon name="exit-to-app" color={colors.redDanger} size={16} />
+                  <Text style={[styles.primaryBtnText, { color: colors.redDanger, marginLeft: 8 }]}>
+                    Sign Out & Disconnect Child Profile
+                  </Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
         )}

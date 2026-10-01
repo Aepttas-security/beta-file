@@ -51,12 +51,15 @@ def create_child(payload: Dict[str, Any]):
         "parent_email": parent_email,
         "name": payload.get("name", "Child"),
         "age": payload.get("age", 10),
-        "device": payload.get("device", "Android Phone"),
-        "deviceName": payload.get("device", "Android Phone"),
-        "os_type": payload.get("os_type", "Android"),
-        "battery": payload.get("battery", "100%"),
-        "battery_percentage": payload.get("battery_percentage", 100),
-        "is_active_online": True,
+        "device": None,
+        "deviceName": "Not Connected",
+        "os_type": None,
+        "battery": None,
+        "battery_percentage": None,
+        "is_active_online": False,
+        "is_device_linked": False,
+        "status": "PENDING",
+        "permissions_granted": False,
         "linking_code": linking_code,
         "created_at": datetime.now().isoformat()
     }
@@ -67,6 +70,19 @@ def create_child(payload: Dict[str, Any]):
         "current_usage_minutes": 0,
         "is_locked_remotely": False
     }
+    pairing_info = {
+        "status": "PENDING",
+        "child_id": new_id,
+        "parent_id": parent_id,
+        "parent_email": parent_email,
+        "linking_code": linking_code,
+        "child_name": child["name"],
+        "created_at": datetime.now().isoformat()
+    }
+    pairing_codes_db[linking_code] = pairing_info
+    clean_digits = "".join(filter(str.isdigit, linking_code))
+    if clean_digits:
+        pairing_codes_db[clean_digits] = pairing_info
     return child
 
 @router.post("/api/child/{child_id}/generate-code")
@@ -90,12 +106,19 @@ def sync_permissions(child_id: str, payload: Dict[str, Any]):
 
 @router.post("/api/child/{child_id}/unlink")
 @router.post("/api/parental/child/{child_id}/unlink")
+@router.delete("/api/child/{child_id}")
+@router.delete("/api/parental/child/{child_id}")
 def unlink_child(child_id: str):
     global children_db
-    children_db = [c for c in children_db if c.get("child_id") != child_id and c.get("id") != child_id]
+    target = next((c for c in children_db if str(c.get("child_id")) == str(child_id) or str(c.get("id")) == str(child_id)), None)
+    if target and target.get("linking_code"):
+        code = target["linking_code"]
+        pairing_codes_db.pop(code, None)
+        pairing_codes_db.pop(code.replace("-", ""), None)
+    children_db = [c for c in children_db if str(c.get("child_id")) != str(child_id) and str(c.get("id")) != str(child_id)]
     if child_id in screentime_db:
         del screentime_db[child_id]
-    return {"status": "success", "message": "Device unlinked successfully"}
+    return {"status": "success", "message": "Device unlinked and profile removed successfully"}
 
 @router.post("/api/child/{child_id}/request-unlink")
 @router.post("/api/parental/child/{child_id}/request-unlink")
@@ -173,6 +196,7 @@ def status_by_code(code: str):
 @router.post("/api/pairing/link-device")
 @router.post("/api/parental/pairing/link-device")
 def link_device(payload: Dict[str, Any]):
+    global children_db
     linking_code = payload.get("linking_code", "").strip()
     digits = "".join(filter(str.isdigit, linking_code))
     
@@ -189,16 +213,24 @@ def link_device(payload: Dict[str, Any]):
     battery_level = payload.get("battery_percentage", payload.get("batteryLevel", 95))
     battery_str = f"{battery_level}%"
 
-    new_id = str(uuid.uuid4().int)[:6]
-    
+    existing_child_id = pairing_info.get("child_id")
+    target_child = None
+    if existing_child_id:
+        target_child = next((c for c in children_db if str(c.get("child_id")) == str(existing_child_id) or str(c.get("id")) == str(existing_child_id)), None)
+    if not target_child and (linking_code or digits):
+        target_child = next((c for c in children_db if c.get("linking_code") == linking_code or str(c.get("linking_code", "")).replace("-", "") == digits), None)
+
+    new_id = target_child["child_id"] if target_child else str(uuid.uuid4().int)[:6]
+    final_child_name = target_child["name"] if target_child else child_name
+
     child_info = {
         "child_id": new_id,
         "id": new_id,
         "parent_id": parent_id,
         "parent_email": parent_email,
-        "name": child_name,
-        "child_name": child_name,
-        "age": age,
+        "name": final_child_name,
+        "child_name": final_child_name,
+        "age": target_child.get("age", age) if target_child else age,
         "device": device_name,
         "deviceName": device_name,
         "os_type": os_type,
@@ -207,24 +239,25 @@ def link_device(payload: Dict[str, Any]):
         "batteryLevel": int(battery_level),
         "charging_status": "Normal",
         "is_active_online": True,
+        "is_device_linked": True,
         "permissions_granted": True,
         "status": "LINKED",
-        "linking_code": linking_code,
+        "linking_code": linking_code or (target_child.get("linking_code") if target_child else ""),
         "last_sync_time": "Just now",
         "created_at": datetime.now().isoformat()
     }
 
-    # Only replace if same child name under the SAME parent
-    global children_db
-    children_db = [c for c in children_db if not (c.get("name", "").lower() == child_name.lower() and c.get("parent_email", "").lower() == parent_email.lower())]
+    # Replace existing child record
+    children_db = [c for c in children_db if str(c.get("child_id")) != str(new_id) and str(c.get("id")) != str(new_id)]
     children_db.append(child_info)
 
-    screentime_db[new_id] = {
-        "child_id": new_id,
-        "daily_limit_minutes": 120,
-        "current_usage_minutes": 0,
-        "is_locked_remotely": False
-    }
+    if new_id not in screentime_db:
+        screentime_db[new_id] = {
+            "child_id": new_id,
+            "daily_limit_minutes": 120,
+            "current_usage_minutes": 0,
+            "is_locked_remotely": False
+        }
 
     paired_status = {
         "status": "LINKED",

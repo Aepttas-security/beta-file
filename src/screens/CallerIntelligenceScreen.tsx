@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -13,6 +13,7 @@ import {
   Alert,
   StatusBar,
   Linking,
+  PermissionsAndroid,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Circle, Path, G, Rect } from 'react-native-svg';
@@ -186,7 +187,32 @@ export const CallerIntelligenceScreen: React.FC<CallerIntelligenceScreenProps> =
   // ── 1. REAL CONTACTS & OVERLAY PERMISSIONS ──────────────────────
   const [localContacts, setLocalContacts] = useState<LocalContact[]>([]);
   const [hasOverlayPermission, setHasOverlayPermission] = useState<boolean>(true);
+  const [hasCallLogPermission, setHasCallLogPermission] = useState<boolean>(true);
   const [isSyncingContacts, setIsSyncingContacts] = useState(false);
+
+  const requestCallPermissions = useCallback(async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const perms = [
+          PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
+          PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
+          PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
+        ];
+        const res = await PermissionsAndroid.requestMultiple(perms);
+        const granted = res[PermissionsAndroid.PERMISSIONS.READ_CALL_LOG] === PermissionsAndroid.RESULTS.GRANTED;
+        setHasCallLogPermission(granted);
+        if (granted) {
+          refreshData();
+          const contacts = await getLocalContacts();
+          if (Array.isArray(contacts)) {
+            setLocalContacts(contacts);
+          }
+        }
+      } catch (err) {
+        console.warn('Call permissions request error:', err);
+      }
+    }
+  }, [refreshData]);
 
   useEffect(() => {
     // Check overlay permission
@@ -194,13 +220,9 @@ export const CallerIntelligenceScreen: React.FC<CallerIntelligenceScreenProps> =
       setHasOverlayPermission(granted);
     });
 
-    // Load device contacts via native bridge
-    getLocalContacts().then(contacts => {
-      if (Array.isArray(contacts)) {
-        setLocalContacts(contacts);
-      }
-    });
-  }, []);
+    // Request Call Log & Contacts permissions on mount
+    requestCallPermissions();
+  }, [requestCallPermissions]);
 
   const handleRequestOverlay = async () => {
     await CallDetection.requestOverlayPermission();
@@ -1098,10 +1120,26 @@ export const CallerIntelligenceScreen: React.FC<CallerIntelligenceScreenProps> =
             <View style={{ width: '100%' }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <Text style={styles.sectionTitle}>DEVICE CALL HISTORY LOGS ({callHistory.length})</Text>
-                <TouchableOpacity onPress={refreshData}>
+                <TouchableOpacity onPress={() => { requestCallPermissions(); refreshData(); }}>
                   <Text style={{ color: colors.cyanAccent, fontSize: 12, fontWeight: 'bold' }}>Refresh</Text>
                 </TouchableOpacity>
               </View>
+
+              {!hasCallLogPermission && (
+                <View style={{ backgroundColor: colors.cardBackgroundLight, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.orangeWarning, marginBottom: 16, flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="warning" color={colors.orangeWarning} size={24} />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={{ color: colors.text, fontSize: 13, fontWeight: 'bold' }}>Call Log Permission Required</Text>
+                    <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>Grant call log permission so Shield can read real hardware call history.</Text>
+                    <TouchableOpacity
+                      style={{ marginTop: 8, backgroundColor: colors.cyanAccent, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, alignSelf: 'flex-start' }}
+                      onPress={requestCallPermissions}
+                    >
+                      <Text style={{ color: '#000', fontSize: 12, fontWeight: 'bold' }}>Grant Permission</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
 
               {callHistory.length > 0 ? (
                 callHistory.map((call, idx) => {

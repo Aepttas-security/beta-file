@@ -47,22 +47,36 @@ export function useCallerIntelligence(childId: string = '1') {
   const fetchFromBackendDB = useCallback(async () => {
     setIsLoading(true);
     let realDeviceLogs: MockCall[] = [];
+    const deviceSpamCalls: SpamCall[] = [];
+    const deviceBlockedNumbers: BlockedNumber[] = [];
 
     // 1. Fetch real device call logs from phone hardware via native bridge
     try {
       const deviceLogs = await CallDetection.getDeviceCallLogs(100);
       if (Array.isArray(deviceLogs) && deviceLogs.length > 0) {
-        realDeviceLogs = deviceLogs.map(log => {
+        deviceLogs.forEach(log => {
           let callType: 'Normal' | 'Spam' | 'Scam' | 'High-Risk' | 'Suspicious' = 'Normal';
           if (log.isBlocked) {
             callType = 'Scam';
+            deviceBlockedNumbers.push({
+              number: log.phoneNumber || '',
+              name: log.callerName || 'Blocked Caller',
+              reason: 'Blocked on Mobile Device',
+              date: log.timestamp ? log.timestamp.split(' ')[0] : 'Recent',
+            });
           } else if (log.isSpam || log.riskScore >= 70) {
             callType = 'Spam';
+            deviceSpamCalls.push({
+              name: log.callerName || 'Spam Caller',
+              number: log.phoneNumber || '',
+              riskScore: log.riskScore || 85,
+              date: log.timestamp || 'Recent',
+            });
           } else if (log.riskScore >= 40) {
             callType = 'Suspicious';
           }
 
-          return {
+          realDeviceLogs.push({
             name: log.callerName || 'Unknown Caller',
             number: log.phoneNumber || '',
             riskScore: log.riskScore || (log.isBlocked ? 100 : log.isSpam ? 85 : 5),
@@ -70,116 +84,49 @@ export function useCallerIntelligence(childId: string = '1') {
             carrier: 'Cellular Network',
             location: 'Mobile Device',
             frequency: `${log.callType} • ${log.duration || '00:00'}`,
-          };
+          });
         });
       }
     } catch (e) {
       console.warn('Native device call logs error:', e);
     }
 
-    // 2. Fetch backend records from Cloud DB
+    // 2. Fetch locally persisted user-blocked numbers & preferences
     try {
-      const baseUrl = getCallerBaseUrl();
-      const [intelRes, callsRes, spamRes, blockedRes] = await Promise.allSettled([
-        fetch(`${baseUrl}/api/caller-intel/${childId}`),
-        fetch(`${baseUrl}/api/calls`),
-        fetch(`${baseUrl}/api/spam-log`),
-        fetch(`${baseUrl}/api/blocked`),
-      ]);
-
-      if (intelRes.status === 'fulfilled' && intelRes.value.ok) {
-        const data = await intelRes.value.json();
-        if (Array.isArray(data.blockedNumbers)) {
-          setBlockedNumbers(data.blockedNumbers);
-        }
-        if (Array.isArray(data.reportHistory)) {
-          setReportHistory(data.reportHistory);
-        }
-        if (typeof data.autoBlockEnabled === 'boolean') {
-          setAutoBlockEnabled(data.autoBlockEnabled);
-        }
-        if (typeof data.notificationsEnabled === 'boolean') {
-          setNotificationsEnabled(data.notificationsEnabled);
-        }
-      }
-
-      if (blockedRes.status === 'fulfilled' && blockedRes.value.ok) {
-        const bData = await blockedRes.value.json();
-        if (Array.isArray(bData) && bData.length > 0) {
-          const mappedBlocked: BlockedNumber[] = bData.map((b: any) => ({
-            number: b.phone_number || '',
-            name: b.caller_name || 'Blocked Caller',
-            reason: b.block_reason || 'Shield Auto-Blocked',
-            date: b.block_date ? String(b.block_date).split(' ')[0] : 'Recent',
-          }));
-          setBlockedNumbers(prev => {
-            const map = new Map<string, BlockedNumber>();
-            prev.forEach(item => map.set(item.number, item));
-            mappedBlocked.forEach(item => map.set(item.number, item));
-            return Array.from(map.values());
+      const localData = await Storage.getCallerIntel();
+      if (localData) {
+        if (Array.isArray(localData.blockedNumbers)) {
+          localData.blockedNumbers.forEach((b: BlockedNumber) => {
+            if (!deviceBlockedNumbers.some(d => d.number === b.number)) {
+              deviceBlockedNumbers.push(b);
+            }
           });
         }
-      }
-
-      if (spamRes.status === 'fulfilled' && spamRes.value.ok) {
-        const spamData = await spamRes.value.json();
-        if (Array.isArray(spamData)) {
-          const mappedSpam: SpamCall[] = spamData.map((s: any) => ({
-            name: s.caller_name || 'Reported Spam',
-            number: s.phone_number || '',
-            riskScore: s.risk_score || 85,
-            date: s.reported_at ? new Date(s.reported_at).toLocaleString() : 'Recent',
-          }));
-          setSpamCalls(mappedSpam);
+        if (typeof localData.autoBlockEnabled === 'boolean') {
+          setAutoBlockEnabled(localData.autoBlockEnabled);
+        }
+        if (typeof localData.notificationsEnabled === 'boolean') {
+          setNotificationsEnabled(localData.notificationsEnabled);
         }
       }
+    } catch {}
 
-      let backendCalls: MockCall[] = [];
-      if (callsRes.status === 'fulfilled' && callsRes.value.ok) {
-        const callsData = await callsRes.value.json();
-        if (Array.isArray(callsData) && callsData.length > 0) {
-          backendCalls = callsData.map((c: any) => ({
-            name: c.caller_name || 'Unknown Caller',
-            number: c.caller_number || '',
-            riskScore: c.risk_score || 0,
-            type: c.risk_score >= 80 ? 'Spam' : (c.risk_score > 40 ? 'Suspicious' : 'Normal'),
-            carrier: 'Cellular Network',
-            location: 'India',
-            frequency: 'Recent Call',
-          }));
-        }
+    // 3. Set purely mobile-derived data
+    setCallHistory(realDeviceLogs);
+    setSpamCalls(deviceSpamCalls);
+    setBlockedNumbers(deviceBlockedNumbers);
+
+    // Optional: sync preferences with backend without pulling mock calls
+    try {
+      const baseUrl = getCallerBaseUrl();
+      const intelRes = await fetch(`${baseUrl}/api/caller-intel/${childId}`);
+      if (intelRes.ok) {
+        const data = await intelRes.json();
+        if (typeof data.autoBlockEnabled === 'boolean') setAutoBlockEnabled(data.autoBlockEnabled);
+        if (typeof data.notificationsEnabled === 'boolean') setNotificationsEnabled(data.notificationsEnabled);
       }
+    } catch {}
 
-      // Combine device logs with backend calls, avoiding duplicate numbers
-      const mergedCalls = [...realDeviceLogs];
-      const existingNumbers = new Set(realDeviceLogs.map(l => l.number));
-      backendCalls.forEach(bc => {
-        if (!existingNumbers.has(bc.number)) {
-          mergedCalls.push(bc);
-          existingNumbers.add(bc.number);
-        }
-      });
-
-      setCallHistory(mergedCalls);
-      setIsLoading(false);
-      return;
-    } catch (e) {
-      console.warn('Caller Intel backend fetch failed, using local fallback:', e);
-    }
-
-    if (realDeviceLogs.length > 0) {
-      setCallHistory(realDeviceLogs);
-    } else {
-      try {
-        const data = await Storage.getCallerIntel();
-        if (data) {
-          if (Array.isArray(data.blockedNumbers)) setBlockedNumbers(data.blockedNumbers);
-          if (Array.isArray(data.spamCalls)) setSpamCalls(data.spamCalls);
-          if (Array.isArray(data.reportHistory)) setReportHistory(data.reportHistory);
-          if (Array.isArray(data.callHistory)) setCallHistory(data.callHistory);
-        }
-      } catch {}
-    }
     setIsLoading(false);
   }, [childId]);
 

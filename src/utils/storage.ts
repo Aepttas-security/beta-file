@@ -146,6 +146,22 @@ export const Storage = {
     }
   },
 
+  async removeLinkedChild(forParentEmail?: string): Promise<void> {
+    await setStored('linked_child', '');
+    if (forParentEmail) {
+      await setStored(`linked_child_${forParentEmail.trim().toLowerCase()}`, '');
+    }
+    const profileRaw = await getStored('user_profile');
+    if (profileRaw) {
+      try {
+        const profile = JSON.parse(profileRaw);
+        if (profile?.email) {
+          await setStored(`linked_child_${profile.email.trim().toLowerCase()}`, '');
+        }
+      } catch {}
+    }
+  },
+
   async getLinkedChild(forParentEmail?: string): Promise<any | null> {
     try {
       let targetEmail = (forParentEmail || '').trim().toLowerCase();

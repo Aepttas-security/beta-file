@@ -231,22 +231,27 @@ export function useParentalControl() {
           childList = childList.filter((c: any) => !c.parent_email || c.parent_email.trim().toLowerCase() === parentEmail);
         }
 
-        const mappedChildren = (Array.isArray(childList) ? childList : []).map((c: any, index: number) => ({
-          id: c.id,
-          name: c.name,
-          age: c.age,
-          parent_email: c.parent_email,
-          avatarColor: index === 0 ? '#A855F7' : '#EC4899',
-          battery: c.battery || '100%',
-          batteryLevel: parseInt(c.battery || '100', 10) || 100,
-          device: c.device || 'Linked Device',
-          deviceName: c.device || 'Linked Device',
-          lastActive: c.is_active_online ? 'Active Now' : 'Offline',
-          is_active_online: c.is_active_online,
-          linking_code: c.linking_code,
-          permissions_granted: true,
-          appUsage: c.app_usage || c.appUsage || []
-        }));
+        const mappedChildren = (Array.isArray(childList) ? childList : []).map((c: any, index: number) => {
+          const isLinked = c.status === 'LINKED' || c.is_device_linked === true;
+          return {
+            id: c.id || c.child_id,
+            name: c.name || c.child_name,
+            age: c.age,
+            parent_email: c.parent_email,
+            avatarColor: index === 0 ? '#A855F7' : '#EC4899',
+            battery: isLinked ? (c.battery || '100%') : null,
+            batteryLevel: isLinked ? (c.battery_percentage != null ? c.battery_percentage : (c.battery ? parseInt(c.battery, 10) : 100)) : null,
+            device: isLinked ? (c.device || 'Linked Device') : null,
+            deviceName: isLinked ? (c.deviceName || c.device || 'Linked Device') : 'Not Connected',
+            lastActive: isLinked ? (c.is_active_online ? 'Active Now' : 'Offline') : 'Waiting for connection',
+            is_active_online: isLinked ? !!c.is_active_online : false,
+            is_device_linked: isLinked,
+            status: isLinked ? 'LINKED' : 'PENDING',
+            linking_code: c.linking_code,
+            permissions_granted: isLinked,
+            appUsage: c.app_usage || c.appUsage || []
+          };
+        });
 
         if (isChildValid && !mappedChildren.some((c: any) => c.id === storedLinkedChild.id || c.name.toLowerCase() === storedLinkedChild.name.toLowerCase())) {
           mappedChildren.unshift(storedLinkedChild);
@@ -548,21 +553,9 @@ export function useParentalControl() {
   const unlinkChildDevice = useCallback(async (childId: string) => {
     try {
       await Storage.setLinkedChild(null);
+      await Storage.removeLinkedChild();
       await Storage.setChildId('');
     } catch {}
-
-    if (localChildrenRef.current.length > 0) {
-      localChildrenRef.current = localChildrenRef.current.filter(c => c.id !== childId);
-    } else {
-      localChildrenRef.current = [];
-    }
-
-    setChildren([...localChildrenRef.current]);
-    if (localChildrenRef.current.length > 0) {
-      setSelectedProfileId(localChildrenRef.current[0].id);
-    } else {
-      setSelectedProfileId('');
-    }
 
     if (backendAvailable) {
       try {
@@ -571,7 +564,18 @@ export function useParentalControl() {
         console.error(e);
       }
     }
-  }, [backendAvailable]);
+
+    localChildrenRef.current = localChildrenRef.current.filter(c => c.id !== childId);
+    setChildren(prev => prev.filter(c => c.id !== childId));
+    if (selectedProfileId === childId) {
+      const remaining = localChildrenRef.current;
+      setSelectedProfileId(remaining.length > 0 ? remaining[0].id : '');
+    }
+
+    try {
+      await refreshChildrenList();
+    } catch {}
+  }, [backendAvailable, selectedProfileId, refreshChildrenList]);
 
   return {
     isLoading,
