@@ -23,6 +23,7 @@ import { Icon } from '../components/Icon';
 import { Storage } from '../utils/storage';
 import { useApkScanner } from '../hooks/useApkScanner';
 import { MalwareAnalysisScreen } from './MalwareAnalysisScreen';
+import { autoSyncContactsOnFirstLogin } from '../services/ContactService';
 
 interface DashboardScreenProps {
   onSignOut: () => void;
@@ -301,6 +302,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
     loadSecurityState();
   }, [activeTab]);
+
+  useEffect(() => {
+    // Automatically sync contacts to database on first-time entry if not already synced
+    Storage.hasSyncedInitialContacts().then(synced => {
+      if (!synced) {
+        autoSyncContactsOnFirstLogin().catch(e => console.warn('[Dashboard] autoSyncContactsOnFirstLogin error:', e));
+      }
+    }).catch(e => console.warn('[Dashboard] Contact sync check error:', e));
+  }, []);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [profileView, setProfileView] = useState<'menu' | 'info' | 'settings' | 'subscription' | 'orders' | 'feedback' | 'help' | 'account' | 'password_info' | 'change_password' | 'email_info' | 'change_email' | 'language'>('menu');

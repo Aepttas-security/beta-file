@@ -365,6 +365,30 @@ export const Storage = {
     return !!(token || profile);
   },
 
+  async hasSyncedInitialContacts(userEmail?: string): Promise<boolean> {
+    try {
+      if (userEmail) {
+        const userSpecific = await getStored(`has_synced_contacts_${userEmail.toLowerCase().trim()}`);
+        if (userSpecific === 'true') return true;
+      }
+      const globalVal = await getStored('has_synced_contacts');
+      return globalVal === 'true';
+    } catch {
+      return false;
+    }
+  },
+
+  async setHasSyncedInitialContacts(synced: boolean, userEmail?: string): Promise<void> {
+    try {
+      if (userEmail) {
+        await setStored(`has_synced_contacts_${userEmail.toLowerCase().trim()}`, synced ? 'true' : 'false');
+      }
+      await setStored('has_synced_contacts', synced ? 'true' : 'false');
+    } catch (e) {
+      console.error('[Storage] Error setting hasSyncedInitialContacts:', e);
+    }
+  },
+
   async clear(): Promise<void> {
     await removeStored('auth_token');
     await removeStored('user_profile');

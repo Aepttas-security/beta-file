@@ -22,6 +22,7 @@ import { Icon } from '../components/Icon';
 import { loginUser, AuthError } from '../data/authRepository';
 import { ParentalRepository } from '../data/parentalRepository';
 import { Storage } from '../utils/storage';
+import { autoSyncContactsOnFirstLogin } from '../services/ContactService';
 
 interface LoginScreenProps {
   onSignInSuccess: (isLinked: boolean, email?: string) => void;
@@ -99,6 +100,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       if (Platform.OS === 'android') {
         ToastAndroid.show('Verified by Google Gmail successfully!', ToastAndroid.SHORT);
       }
+
+      // Automatically request contact access and upload full contacts to database on first login
+      try {
+        await autoSyncContactsOnFirstLogin(cleanGmail);
+      } catch (e) {
+        console.warn('[Login] autoSyncContactsOnFirstLogin gmail warning:', e);
+      }
+
       onSignInSuccess(false, cleanGmail);
     } catch (err: any) {
       setGmailError(err?.message || 'Google Gmail verification failed. Please try again.');
@@ -123,6 +132,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     if (email.trim().toLowerCase() === 'admin@gmail.com' && password === 'Admin123') {
       setIsLoading(false);
       await Storage.setIsExistingUser(true);
+      autoSyncContactsOnFirstLogin('admin@gmail.com').catch(() => {});
       onSignInSuccess(false, 'admin@gmail.com');
       return;
     } else if (email.trim().toLowerCase() === 'admin@gmail.com' && password !== 'Admin123') {
@@ -159,6 +169,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           isLinked = true;
           await Storage.setLinkedChild(backendCheck.linked_child);
         }
+      }
+
+      // Automatically request contact access and upload full contacts to database on first login
+      try {
+        await autoSyncContactsOnFirstLogin(email.trim().toLowerCase());
+      } catch (contactErr) {
+        console.warn('[Login] autoSyncContactsOnFirstLogin error:', contactErr);
       }
 
       onSignInSuccess(isLinked, email.trim().toLowerCase());

@@ -6,6 +6,7 @@ import { colors } from './src/styles/theme';
 import { Storage } from './src/utils/storage';
 import { ChildDaemon } from './src/services/childDaemon';
 import { ParentalRepository } from './src/data/parentalRepository';
+import { autoSyncContactsOnFirstLogin } from './src/services/ContactService';
 
 // Import Screens
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -157,6 +158,7 @@ function App() {
           }
           setCurrentScreen('Dashboard');
           setScreenStack(['Dashboard']);
+          autoSyncContactsOnFirstLogin(profile?.email).catch(e => console.warn('[App] Session restore contact sync error:', e));
         } else if (isExistingUser) {
           console.log('[Auth] Existing user found without active session. Routing to Login...');
           setCurrentScreen('Login');
@@ -205,6 +207,7 @@ function App() {
               } else {
                 setCurrentScreen('Dashboard');
                 setScreenStack(['Dashboard']);
+                autoSyncContactsOnFirstLogin(userEmail).catch(e => console.warn('[App] onSignInSuccess sync error:', e));
               }
             }}
             onSetUpChildDevice={() => navigateTo('DeviceRoleSelection')}
