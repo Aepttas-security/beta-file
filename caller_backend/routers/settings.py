@@ -76,25 +76,29 @@ def dashboard(db: Session = Depends(get_db)):
 @router.post("/api/login")
 @router.post("/api/auth/login")
 def login(req: LoginRequest):
-    username = req.email.split('@')[0] if req.email and '@' in req.email else "Parent Admin"
+    clean_email = req.email.strip().lower() if req.email else "parent@gmail.com"
+    username = clean_email.split('@')[0]
     formatted_name = username.capitalize() if username else "Parent Admin"
+    unique_user_id = abs(hash(clean_email)) % 900000 + 1000
     return {
         "status": "success",
-        "user_id": 1,
+        "user_id": unique_user_id,
         "name": formatted_name,
         "parent_name": formatted_name,
-        "email": req.email,
+        "email": clean_email,
         "token_type": "bearer",
-        "access_token": "jwt-aepttas-unified-token-1",
+        "access_token": f"jwt-aepttas-unified-token-{uuid.uuid4().hex[:8]}",
         "message": "Login successful"
     }
 
 @router.post("/api/register")
 @router.post("/api/auth/register")
 def register(req: RegisterRequest):
+    clean_email = req.email.strip().lower() if req.email else "parent@gmail.com"
+    unique_user_id = abs(hash(clean_email)) % 900000 + 1000
     return {
         "status": "success",
-        "user_id": 1,
+        "user_id": unique_user_id,
         "message": "Account registered successfully"
     }
 

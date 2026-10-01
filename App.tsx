@@ -145,9 +145,9 @@ function App() {
             return;
           }
 
-          if (profile && profile.user_id) {
+          if (profile && (profile.user_id || profile.email)) {
             try {
-              const backendCheck = await ParentalRepository.checkParentLinked(profile.user_id);
+              const backendCheck = await ParentalRepository.checkParentLinked(profile.user_id, profile.email);
               if (backendCheck?.is_linked && backendCheck?.linked_child) {
                 await Storage.setLinkedChild(backendCheck.linked_child);
               }

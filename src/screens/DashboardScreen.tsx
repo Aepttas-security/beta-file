@@ -370,15 +370,28 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const fetchChildren = async () => {
     try {
-      let list = await ParentalRepository.listChildren();
-      const storedLinkedChild = await Storage.getLinkedChild();
-      if (storedLinkedChild && !list.some((c: any) => c.id === storedLinkedChild.id || c.name.toLowerCase() === storedLinkedChild.name.toLowerCase())) {
-        list.unshift(storedLinkedChild);
+      const userProfile = await Storage.getUserProfile();
+      const parentEmail = (userProfile?.email || '').trim().toLowerCase();
+      let list = await ParentalRepository.listChildren(userProfile?.user_id, parentEmail);
+      if (parentEmail) {
+        list = list.filter((c: any) => !c.parent_email || c.parent_email.trim().toLowerCase() === parentEmail);
+      }
+      const storedLinkedChild = await Storage.getLinkedChild(parentEmail);
+      if (storedLinkedChild) {
+        const storedMatches = !storedLinkedChild.parentEmail || !parentEmail ||
+          storedLinkedChild.parentEmail.trim().toLowerCase() === parentEmail;
+        if (storedMatches && !list.some((c: any) => c.id === storedLinkedChild.id || c.child_id === storedLinkedChild.id || c.name?.toLowerCase() === storedLinkedChild.name?.toLowerCase())) {
+          list.unshift(storedLinkedChild);
+        }
       }
       setChildren(list);
     } catch (err) {
-      const storedLinkedChild = await Storage.getLinkedChild();
-      setChildren(storedLinkedChild ? [storedLinkedChild] : []);
+      const userProfile = await Storage.getUserProfile();
+      const parentEmail = (userProfile?.email || '').trim().toLowerCase();
+      const storedLinkedChild = await Storage.getLinkedChild(parentEmail);
+      const storedMatches = storedLinkedChild && (!storedLinkedChild.parentEmail || !parentEmail ||
+        storedLinkedChild.parentEmail.trim().toLowerCase() === parentEmail);
+      setChildren(storedMatches ? [storedLinkedChild] : []);
     }
   };
 
@@ -387,7 +400,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   useEffect(() => {
     const checkSOS = async () => {
-      const storedLinkedChild = await Storage.getLinkedChild();
+      const userProfile = await Storage.getUserProfile();
+      const parentEmail = (userProfile?.email || '').trim().toLowerCase();
+      const storedLinkedChild = await Storage.getLinkedChild(parentEmail);
       const targetId = storedLinkedChild?.id || (children[0]?.id || children[0]?.child_id);
       if (!targetId) {
         setSosActive(false);

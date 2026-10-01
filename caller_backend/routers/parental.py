@@ -27,18 +27,27 @@ geofences_db: Dict[str, List[Dict[str, Any]]] = {}
 # ============================================
 @router.get("/api/child")
 @router.get("/api/parental/child")
-def get_children():
-    return children_db
+def get_children(parent_id: Optional[int] = None, parent_email: Optional[str] = None):
+    results = children_db
+    if parent_email:
+        clean = parent_email.strip().lower()
+        return [c for c in results if c.get("parent_email", "").strip().lower() == clean]
+    if parent_id is not None:
+        return [c for c in results if c.get("parent_id") == parent_id]
+    return results
 
 @router.post("/api/child")
 @router.post("/api/parental/child")
 def create_child(payload: Dict[str, Any]):
     new_id = str(uuid.uuid4().int)[:6]
     linking_code = payload.get("linking_code") or f"{random.randint(100, 999)}-{random.randint(100, 999)}"
+    parent_id = payload.get("parent_id", 1001)
+    parent_email = (payload.get("parent_email") or "").strip().lower()
     child = {
         "child_id": new_id,
         "id": new_id,
-        "parent_id": payload.get("parent_id", 1),
+        "parent_id": parent_id,
+        "parent_email": parent_email,
         "name": payload.get("name", "Child"),
         "age": payload.get("age", 10),
         "device": payload.get("device", "Android Phone"),
@@ -110,11 +119,13 @@ def verify_unlink(child_id: str, payload: Dict[str, Any]):
 @router.post("/api/pairing/generate-parent-code")
 @router.post("/api/parental/pairing/generate-parent-code")
 def generate_parent_code(payload: Dict[str, Any]):
-    parent_id = payload.get("parent_id", 1)
+    parent_id = payload.get("parent_id") or 1001
+    parent_email = (payload.get("parent_email") or "").strip().lower()
     code = f"{random.randint(100, 999)}-{random.randint(100, 999)}"
     pairing_info = {
         "status": "PENDING",
         "parent_id": parent_id,
+        "parent_email": parent_email,
         "linking_code": code,
         "created_at": datetime.now().isoformat()
     }
@@ -138,7 +149,8 @@ def status_by_code(code: str):
                 return {
                     "status": "LINKED",
                     "child_id": c["child_id"],
-                    "parent_id": c.get("parent_id", 1),
+                    "parent_id": c.get("parent_id", 1001),
+                    "parent_email": c.get("parent_email", ""),
                     "child_name": c["name"],
                     "device_name": c["device"],
                     "os_type": c.get("os_type", "Android"),
@@ -163,10 +175,15 @@ def link_device(payload: Dict[str, Any]):
     linking_code = payload.get("linking_code", "").strip()
     digits = "".join(filter(str.isdigit, linking_code))
     
+    pairing_info = pairing_codes_db.get(linking_code) or pairing_codes_db.get(digits) or {}
+    
+    # Strictly associate with the parent who generated the code or parent email entered
+    parent_id = pairing_info.get("parent_id") or payload.get("parent_id") or 1001
+    parent_email = (pairing_info.get("parent_email") or payload.get("parent_email", "")).strip().lower()
+    
     child_name = payload.get("child_name") or "Child Device"
     device_name = payload.get("device_name") or "Android Phone"
     os_type = payload.get("os_type") or "Android"
-    parent_email = payload.get("parent_email", "")
     age = payload.get("age", 10)
     battery_level = payload.get("battery_percentage", payload.get("batteryLevel", 95))
     battery_str = f"{battery_level}%"
@@ -176,7 +193,7 @@ def link_device(payload: Dict[str, Any]):
     child_info = {
         "child_id": new_id,
         "id": new_id,
-        "parent_id": payload.get("parent_id", 1),
+        "parent_id": parent_id,
         "parent_email": parent_email,
         "name": child_name,
         "child_name": child_name,
@@ -196,9 +213,9 @@ def link_device(payload: Dict[str, Any]):
         "created_at": datetime.now().isoformat()
     }
 
-    # Remove any existing child with same name if unlinked
+    # Only replace if same child name under the SAME parent
     global children_db
-    children_db = [c for c in children_db if c.get("name", "").lower() != child_name.lower()]
+    children_db = [c for c in children_db if not (c.get("name", "").lower() == child_name.lower() and c.get("parent_email", "").lower() == parent_email.lower())]
     children_db.append(child_info)
 
     screentime_db[new_id] = {
@@ -211,7 +228,8 @@ def link_device(payload: Dict[str, Any]):
     paired_status = {
         "status": "LINKED",
         "child_id": new_id,
-        "parent_id": child_info["parent_id"],
+        "parent_id": parent_id,
+        "parent_email": parent_email,
         "child_name": child_name,
         "device_name": device_name,
         "os_type": os_type,
@@ -228,12 +246,13 @@ def link_device(payload: Dict[str, Any]):
     if digits:
         pairing_codes_db[digits] = paired_status
 
-    logger.info(f"Child device linked: {child_name} ({device_name}) with code {linking_code}")
+    logger.info(f"Child device linked: {child_name} ({device_name}) for parent {parent_email} (ID: {parent_id})")
 
     return {
         "status": "success",
         "child_id": new_id,
-        "parent_id": child_info["parent_id"],
+        "parent_id": parent_id,
+        "parent_email": parent_email,
         "child_name": child_name,
         "device_name": device_name,
         "os_type": os_type,
@@ -244,9 +263,15 @@ def link_device(payload: Dict[str, Any]):
 
 @router.get("/api/pairing/check-parent-linked/{parent_id}")
 @router.get("/api/parental/pairing/check-parent-linked/{parent_id}")
-def check_parent_linked(parent_id: int):
-    # Check if this parent has any active linked child
-    parent_children = [c for c in children_db if c.get("parent_id") == parent_id or parent_id == 1]
+def check_parent_linked(parent_id: int, parent_email: Optional[str] = None):
+    # Strictly return child if belonging to THIS parent
+    parent_children = []
+    if parent_email:
+        clean = parent_email.strip().lower()
+        parent_children = [c for c in children_db if c.get("parent_email", "").strip().lower() == clean]
+    elif parent_id:
+        parent_children = [c for c in children_db if c.get("parent_id") == parent_id]
+        
     if parent_children:
         c = parent_children[-1]
         return {

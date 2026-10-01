@@ -46,8 +46,12 @@ export function useParentalControl() {
   useEffect(() => {
     async function loadLinkedChildFromStorage() {
       try {
-        const linkedChild = await Storage.getLinkedChild();
-        if (linkedChild && linkedChild.permissions_granted === true && linkedChild.status === 'LINKED') {
+        const userProfile = await Storage.getUserProfile();
+        const parentEmail = (userProfile?.email || '').trim().toLowerCase();
+        const linkedChild = await Storage.getLinkedChild(parentEmail);
+        const storedMatches = linkedChild && (!linkedChild.parentEmail || !parentEmail ||
+          linkedChild.parentEmail.trim().toLowerCase() === parentEmail);
+        if (storedMatches && linkedChild.permissions_granted === true && linkedChild.status === 'LINKED') {
           const existingIdx = localChildrenRef.current.findIndex(
             c => c.id === linkedChild.id || c.name.toLowerCase() === linkedChild.name.toLowerCase()
           );
@@ -70,10 +74,12 @@ export function useParentalControl() {
           setChildren([...localChildrenRef.current]);
           setSelectedProfileId(linkedChild.id);
         } else {
+          localChildrenRef.current = [];
           setChildren([]);
           setSelectedProfileId('');
         }
       } catch (err) {
+        localChildrenRef.current = [];
         setChildren([]);
         setSelectedProfileId('');
       }
@@ -193,9 +199,13 @@ export function useParentalControl() {
   const refreshChildrenList = useCallback(async () => {
     setIsLoading(true);
     const isOnline = await checkBackend();
-    const storedLinkedChild = await Storage.getLinkedChild();
+    const userProfile = await Storage.getUserProfile();
+    const parentEmail = (userProfile?.email || '').trim().toLowerCase();
+    const storedLinkedChild = await Storage.getLinkedChild(parentEmail);
 
-    const isChildValid = storedLinkedChild && storedLinkedChild.permissions_granted === true && storedLinkedChild.status === 'LINKED';
+    const storedMatches = storedLinkedChild && (!storedLinkedChild.parentEmail || !parentEmail ||
+      storedLinkedChild.parentEmail.trim().toLowerCase() === parentEmail);
+    const isChildValid = storedMatches && storedLinkedChild.permissions_granted === true && storedLinkedChild.status === 'LINKED';
 
     if (isChildValid) {
       const existingIdx = localChildrenRef.current.findIndex(
@@ -206,19 +216,26 @@ export function useParentalControl() {
       } else {
         localChildrenRef.current = [storedLinkedChild, ...localChildrenRef.current];
       }
+    } else {
+      localChildrenRef.current = [];
     }
 
     if (isOnline) {
       try {
-        let childList = await ParentalRepository.listChildren();
+        let childList = await ParentalRepository.listChildren(userProfile?.user_id, parentEmail);
         if (!Array.isArray(childList)) {
           childList = (childList as any)?.data || (childList as any)?.children || [];
+        }
+
+        if (parentEmail) {
+          childList = childList.filter((c: any) => !c.parent_email || c.parent_email.trim().toLowerCase() === parentEmail);
         }
 
         const mappedChildren = (Array.isArray(childList) ? childList : []).map((c: any, index: number) => ({
           id: c.id,
           name: c.name,
           age: c.age,
+          parent_email: c.parent_email,
           avatarColor: index === 0 ? '#A855F7' : '#EC4899',
           battery: c.battery || '100%',
           batteryLevel: parseInt(c.battery || '100', 10) || 100,

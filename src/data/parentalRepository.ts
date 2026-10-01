@@ -122,19 +122,37 @@ export const ParentalRepository = {
   /**
    * Children Profile APIs
    */
-  async listChildren(): Promise<BackendChild[]> {
+  async listChildren(parentId?: number, parentEmail?: string): Promise<BackendChild[]> {
     const headers = await getAuthHeader();
-    const res = await fetch(`${getBaseUrl()}/api/child`, { headers });
+    let effId = parentId;
+    let effEmail = parentEmail;
+    if (!effId || !effEmail) {
+      const profile = await Storage.getUserProfile();
+      if (!effId && profile?.user_id) effId = profile.user_id;
+      if (!effEmail && profile?.email) effEmail = profile.email;
+    }
+    const params = new URLSearchParams();
+    if (effId) params.append('parent_id', String(effId));
+    if (effEmail) params.append('parent_email', effEmail.trim().toLowerCase());
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`${getBaseUrl()}/api/child${query}`, { headers });
     if (!res.ok) throw new Error('Failed to list children');
     return res.json();
   },
 
   async createChild(name: string, age: number, linkingCode: string): Promise<BackendChild> {
     const headers = await getAuthHeader();
+    const profile = await Storage.getUserProfile();
     const res = await fetch(`${getBaseUrl()}/api/child`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ name, age, linking_code: linkingCode }),
+      body: JSON.stringify({
+        name,
+        age,
+        linking_code: linkingCode,
+        parent_id: profile?.user_id || 1001,
+        parent_email: (profile?.email || '').trim().toLowerCase(),
+      }),
     });
     if (!res.ok) throw new Error('Failed to create child profile');
     return res.json();
@@ -149,23 +167,35 @@ export const ParentalRepository = {
       });
       if (res.ok) return res.json();
     } catch {}
-    return this.generateParentLinkingCode(1);
+    const profile = await Storage.getUserProfile();
+    return this.generateParentLinkingCode(profile?.user_id, profile?.email);
   },
 
-  async generateParentLinkingCode(parentId: number = 1): Promise<{
+  async generateParentLinkingCode(parentId?: number, parentEmail?: string): Promise<{
     status: string;
     linking_code: string;
     parent_id: number;
+    parent_email?: string;
     pairing_status: string;
     expires_at: string;
     expires_in_seconds: number;
   }> {
     let code = '';
+    let effId = parentId;
+    let effEmail = parentEmail;
+    if (!effId || !effEmail) {
+      const profile = await Storage.getUserProfile();
+      if (!effId && profile?.user_id) effId = profile.user_id;
+      if (!effEmail && profile?.email) effEmail = profile.email;
+    }
+    effId = effId || 1001;
+    effEmail = (effEmail || '').trim().toLowerCase();
+
     try {
       const res = await fetch(`${getBaseUrl()}/api/pairing/generate-parent-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parent_id: parentId }),
+        body: JSON.stringify({ parent_id: effId, parent_email: effEmail }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -184,7 +214,8 @@ export const ParentalRepository = {
     return {
       status: 'success',
       linking_code: code,
-      parent_id: parentId,
+      parent_id: effId,
+      parent_email: effEmail,
       pairing_status: 'PENDING',
       expires_at: new Date(Date.now() + 900000).toISOString(),
       expires_in_seconds: 900,
@@ -195,6 +226,7 @@ export const ParentalRepository = {
     status: string;
     linking_code: string;
     parent_id?: number;
+    parent_email?: string;
     child_id?: string;
     child_name?: string;
     device_name?: string;
@@ -392,9 +424,18 @@ export const ParentalRepository = {
     return { status: 'success', permissions_granted: allPermissionsGranted };
   },
 
-  async checkParentLinked(parentId: number = 1): Promise<{ is_linked: boolean; linked_child: any }> {
+  async checkParentLinked(parentId?: number, parentEmail?: string): Promise<{ is_linked: boolean; linked_child: any }> {
     try {
-      const res = await fetch(`${getBaseUrl()}/api/pairing/check-parent-linked/${parentId}`);
+      let effId = parentId;
+      let effEmail = parentEmail;
+      if (!effId || !effEmail) {
+        const profile = await Storage.getUserProfile();
+        if (!effId && profile?.user_id) effId = profile.user_id;
+        if (!effEmail && profile?.email) effEmail = profile.email;
+      }
+      effId = effId || 1001;
+      const query = effEmail ? `?parent_email=${encodeURIComponent(effEmail.trim().toLowerCase())}` : '';
+      const res = await fetch(`${getBaseUrl()}/api/pairing/check-parent-linked/${effId}${query}`);
       if (res.ok) return await res.json();
     } catch {}
     return { is_linked: false, linked_child: null };

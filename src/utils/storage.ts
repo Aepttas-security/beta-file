@@ -135,13 +135,48 @@ export const Storage = {
   },
 
   async setLinkedChild(childData: any): Promise<void> {
-    await setStored('linked_child', childData ? JSON.stringify(childData) : '');
+    if (!childData) {
+      await setStored('linked_child', '');
+      return;
+    }
+    await setStored('linked_child', JSON.stringify(childData));
+    const parentEmail = (childData.parentEmail || childData.parent_email || '').trim().toLowerCase();
+    if (parentEmail) {
+      await setStored(`linked_child_${parentEmail}`, JSON.stringify(childData));
+    }
   },
 
-  async getLinkedChild(): Promise<any | null> {
+  async getLinkedChild(forParentEmail?: string): Promise<any | null> {
     try {
+      let targetEmail = (forParentEmail || '').trim().toLowerCase();
+      if (!targetEmail) {
+        const profileRaw = await getStored('user_profile');
+        if (profileRaw) {
+          const profile = JSON.parse(profileRaw);
+          if (profile?.email) {
+            targetEmail = profile.email.trim().toLowerCase();
+          }
+        }
+      }
+
+      if (targetEmail) {
+        const specificRaw = await getStored(`linked_child_${targetEmail}`);
+        if (specificRaw) {
+          return JSON.parse(specificRaw);
+        }
+      }
+
       const raw = await getStored('linked_child');
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      const child = JSON.parse(raw);
+
+      if (targetEmail && child) {
+        const childEmail = (child.parentEmail || child.parent_email || '').trim().toLowerCase();
+        if (childEmail && childEmail !== targetEmail) {
+          return null;
+        }
+      }
+      return child;
     } catch {
       return null;
     }

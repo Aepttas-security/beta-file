@@ -153,8 +153,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       // Always reset old cached child state on new login unless verified in DB
       await Storage.setLinkedChild(null);
       let isLinked = false;
-      if (result.user_id) {
-        const backendCheck = await ParentalRepository.checkParentLinked(result.user_id);
+      if (result.user_id || email.trim()) {
+        const backendCheck = await ParentalRepository.checkParentLinked(result.user_id, email.trim().toLowerCase());
         if (backendCheck?.is_linked && backendCheck?.linked_child) {
           isLinked = true;
           await Storage.setLinkedChild(backendCheck.linked_child);

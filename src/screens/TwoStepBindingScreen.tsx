@@ -39,7 +39,8 @@ export const TwoStepBindingScreen: React.FC<TwoStepBindingScreenProps> = ({
     async function initCode() {
       try {
         setIsGenerating(true);
-        const res = await ParentalRepository.generateParentLinkingCode(1);
+        const profile = await Storage.getUserProfile();
+        const res = await ParentalRepository.generateParentLinkingCode(profile?.user_id, profile?.email);
         if (res?.linking_code) {
           setCode(res.linking_code);
         }
@@ -62,7 +63,9 @@ export const TwoStepBindingScreen: React.FC<TwoStepBindingScreenProps> = ({
         
         if (isMounted && liveStatus) {
           if (liveStatus.status === 'LINKED' || liveStatus.status === 'COMPLETED') {
-            const storedChild = await Storage.getLinkedChild();
+            const profile = await Storage.getUserProfile();
+            const parentEmail = (liveStatus.parent_email || profile?.email || '').trim().toLowerCase();
+            const storedChild = await Storage.getLinkedChild(parentEmail);
             if (storedChild && storedChild.permissions_granted === false) {
               setPairingStatus('PENDING');
               setStatusMessage('Child device entered linking code. Waiting for system permissions to be granted on child device...');
@@ -90,7 +93,7 @@ export const TwoStepBindingScreen: React.FC<TwoStepBindingScreenProps> = ({
               os_type: osType,
               osType: osType,
               age: storedChild?.age || 10,
-              parentEmail: storedChild?.parentEmail || '',
+              parentEmail: parentEmail || storedChild?.parentEmail || '',
               status: 'LINKED',
               permissions_granted: true,
               avatarColor: '#8b5cf6',
@@ -134,7 +137,9 @@ export const TwoStepBindingScreen: React.FC<TwoStepBindingScreenProps> = ({
   const handleManualCheckStatus = async () => {
     try {
       const liveStatus = await ParentalRepository.checkPairingStatusByCode(code);
-      const storedChild = await Storage.getLinkedChild();
+      const profile = await Storage.getUserProfile();
+      const parentEmail = (liveStatus?.parent_email || profile?.email || '').trim().toLowerCase();
+      const storedChild = await Storage.getLinkedChild(parentEmail);
 
       if ((liveStatus?.status === 'LINKED' || liveStatus?.status === 'COMPLETED') && storedChild?.permissions_granted === true) {
         setPairingStatus('LINKED');
@@ -154,7 +159,8 @@ export const TwoStepBindingScreen: React.FC<TwoStepBindingScreenProps> = ({
     setIsGenerating(true);
     setPairingStatus('PENDING');
     setStatusMessage('Waiting for child device to connect...');
-    const res = await ParentalRepository.generateParentLinkingCode(1);
+    const profile = await Storage.getUserProfile();
+    const res = await ParentalRepository.generateParentLinkingCode(profile?.user_id, profile?.email);
     if (res?.linking_code) {
       setCode(res.linking_code);
     }
