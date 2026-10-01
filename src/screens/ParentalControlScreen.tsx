@@ -1373,7 +1373,7 @@ export const ParentalControlScreen: React.FC<ParentalControlScreenProps> = ({ on
                         Live GPS Location Radar
                       </Text>
                       <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4, textAlign: 'center' }}>
-                        {location?.current_address || '123 Cyber Tower, Silicon Valley'}
+                        {location?.current_address || (location?.latitude && location?.longitude ? `${Number(location.latitude).toFixed(4)}°, ${Number(location.longitude).toFixed(4)}°` : 'Waiting for device GPS signal...')}
                       </Text>
                       <Text style={{ color: colors.greenSuccess, fontSize: 11, fontWeight: 'bold', marginTop: 6 }}>
                         SAFE ZONE ACTIVE ({geofenceRadius}m radius)

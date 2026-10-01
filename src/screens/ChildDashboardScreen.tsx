@@ -33,18 +33,22 @@ interface ChildDashboardScreenProps {
   onBack: () => void;
 }
 
-const initialProfiles: ChildProfile[] = [
+const initialProfiles: any[] = [
   {
     id: '1',
     name: 'Child Device',
     age: 10,
     avatarColor: colors.purpleAccent,
-    batteryLevel: 95,
-    deviceName: 'Android Device',
-    lastActive: 'Active Now',
+    batteryLevel: null,
+    battery: '--',
+    deviceName: 'Not Connected',
+    device: 'Not Connected',
+    lastActive: 'Waiting for connection',
     currentUsageMinutes: 0,
     totalLimitMinutes: 120,
-    appUsage: []
+    appUsage: [],
+    is_device_linked: false,
+    status: 'PENDING'
   }
 ];
 
@@ -82,6 +86,7 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
     updateSosPreferences,
     getSosPreferences,
     generateLinkingCode,
+    refreshData,
   } = useParentalControl();
 
   const [activeTab, setActiveTab] = useState('Overview');
@@ -126,6 +131,40 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
       refreshPairingCode();
     }
   }, [activeTab, selectedProfileId]);
+
+  // Auto-poll pairing status every 3 seconds if child is not yet linked
+  useEffect(() => {
+    const active = children.find(p => String(p.id) === String(selectedProfileId)) || children[0];
+    const isLinked = Boolean(
+      active && (
+        active.is_device_linked === true ||
+        active.permissions_granted === true ||
+        String(active.status || '').toUpperCase() === 'LINKED' ||
+        (active.deviceName && active.deviceName !== 'Not Connected' && active.deviceName !== 'Waiting for connection' && active.deviceName !== 'Child Device')
+      )
+    );
+    if (!isLinked) {
+      const timer = setInterval(() => {
+        refreshData();
+      }, 3000);
+      return () => clearInterval(timer);
+    }
+  }, [children, selectedProfileId, refreshData]);
+
+  // Keep pairing code up to date from profile or generate
+  useEffect(() => {
+    const active = children.find(p => String(p.id) === String(selectedProfileId)) || children[0];
+    if (active?.linking_code) {
+      const raw = String(active.linking_code).replace(/[^0-9]/g, '');
+      if (raw.length === 6) {
+        setPairingCode(`${raw.substring(0, 3)}-${raw.substring(3)}`);
+      } else {
+        setPairingCode(active.linking_code);
+      }
+    } else if (!pairingCode) {
+      refreshPairingCode();
+    }
+  }, [children, selectedProfileId]);
 
   // Load preferences when profile changes
   useEffect(() => {
@@ -230,11 +269,23 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
     );
   };
 
-  const activeChild = children.find(p => p.id === selectedProfileId) || children[0] || initialProfiles[0];
+  const activeChild: any = children.find(p => String(p.id) === String(selectedProfileId)) || children[0] || initialProfiles[0];
   if (activeChild) {
     activeChild.currentUsageMinutes = currentUsageMinutes;
     activeChild.totalLimitMinutes = limitMinutes;
   }
+
+  const isChildLinked = Boolean(
+    activeChild && (
+      activeChild.is_device_linked === true ||
+      activeChild.permissions_granted === true ||
+      String(activeChild.status || '').toUpperCase() === 'LINKED' ||
+      (activeChild.deviceName &&
+       activeChild.deviceName !== 'Not Connected' &&
+       activeChild.deviceName !== 'Waiting for connection' &&
+       activeChild.deviceName !== 'Child Device')
+    )
+  );
 
   const currentLimitMinutes = limitMinutes;
   const setLimitMinutes = changeChildDailyLimit;
@@ -254,13 +305,13 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
     removeBlacklistUrl(url);
   };
 
-  const tabs = ['Overview', 'Reports'];
+  const tabs = ['Overview', 'Limits', 'Apps', 'Filter', 'Location', 'Reports', 'Alerts', 'SOS', 'Link'];
 
   // Circular progress math
   const radius = 50;
   const strokeWidth = 8;
   const circumference = 2 * Math.PI * radius;
-  const progressPercent = activeChild.currentUsageMinutes / currentLimitMinutes;
+  const progressPercent = isChildLinked ? ((activeChild.currentUsageMinutes || 0) / (currentLimitMinutes || 1)) : 0;
   const strokeDashoffset = circumference - (Math.min(1, progressPercent) * (270 / 360)) * circumference;
 
   const renderNotificationSettings = (
@@ -324,6 +375,7 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
       <View style={styles.profilesRow}>
         {children.map(profile => {
           const isSelected = selectedProfileId === profile.id;
+          const profileLinked = profile.is_device_linked === true || String(profile.status || '').toUpperCase() === 'LINKED';
           return (
             <View
               key={profile.id}
@@ -339,11 +391,12 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
               >
                 <View style={[styles.avatar, { backgroundColor: profile.avatarColor }]}>
                   <Text style={styles.avatarText}>{profile.name.charAt(0)}</Text>
+                  <View style={[styles.statusDot, { backgroundColor: profileLinked ? colors.greenSuccess : colors.redDanger }]} />
                 </View>
                 <View style={styles.profileInfo}>
                   <Text style={styles.profileName} numberOfLines={1}>{profile.name}</Text>
                   <Text style={styles.profileSub} numberOfLines={1}>
-                    {profile.age} yrs • {profile.deviceName || profile.device}
+                    {profile.age} yrs • {profileLinked ? (profile.deviceName || profile.device || 'Connected') : 'Not Connected'}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -408,24 +461,73 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
       <ScrollView contentContainerStyle={styles.viewContent}>
         {activeTab === 'Overview' && (
           <View style={{ width: '100%' }}>
+            {/* Unlinked Setup Banner - visible when child device is not connected */}
+            {!isChildLinked && (
+              <View style={[styles.systemStatusCard, { marginBottom: 16, backgroundColor: 'rgba(6, 182, 212, 0.08)', borderColor: colors.cyanAccent + '50', flexDirection: 'column', alignItems: 'stretch' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                  <View style={[styles.shieldIconBg, { backgroundColor: colors.cyanAccent + '20' }]}>
+                    <Icon name="phonelink-setup" color={colors.cyanAccent} size={24} />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={{ color: colors.cyanAccent, fontSize: 15, fontWeight: 'bold' }}>
+                      Step 1: Link Child Device
+                    </Text>
+                    <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
+                      Enter this 6-digit code on child's phone in Child Mode
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.cardBackground, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
+                  <Text style={{ fontSize: 24, fontWeight: '900', color: colors.cyanAccent, letterSpacing: 3 }}>
+                    {pairingCode || activeChild?.linking_code || '--- ---'}
+                  </Text>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.cyanAccent + '15', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}
+                    onPress={refreshPairingCode}
+                    activeOpacity={0.7}
+                  >
+                    <Icon name="refresh" color={colors.cyanAccent} size={16} />
+                    <Text style={{ color: colors.cyanAccent, fontSize: 12, fontWeight: 'bold', marginLeft: 6 }}>
+                      New Code
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.orangeWarning, marginRight: 8 }} />
+                  <Text style={{ color: colors.orangeWarning, fontSize: 12, fontWeight: '600' }}>
+                    Waiting for child device to enter code... Auto-detecting
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {/* 1. System Status Card */}
             <View style={styles.systemStatusCard}>
               <View style={styles.systemStatusLeft}>
-                <View style={[styles.shieldIconBg, { backgroundColor: deviceLocked ? colors.redDanger + '15' : colors.greenSuccess + '15' }]}>
-                  <Icon name={deviceLocked ? 'lock' : 'shield'} color={deviceLocked ? colors.redDanger : colors.greenSuccess} size={28} />
+                <View style={[styles.shieldIconBg, { backgroundColor: (!isChildLinked ? colors.textMuted : (deviceLocked ? colors.redDanger : colors.greenSuccess)) + '15' }]}>
+                  <Icon
+                    name={!isChildLinked ? 'phonelink-erase' : (deviceLocked ? 'lock' : 'shield')}
+                    color={!isChildLinked ? colors.textMuted : (deviceLocked ? colors.redDanger : colors.greenSuccess)}
+                    size={28}
+                  />
                 </View>
                 <View style={styles.systemStatusTextContainer}>
                   <Text style={styles.systemStatusLabel}>SYSTEM STATUS</Text>
-                  <Text style={[styles.systemStatusValue, deviceLocked && { color: colors.redDanger }]}>
-                    {deviceLocked ? 'LOCKED' : 'SECURE'}
+                  <Text style={[styles.systemStatusValue, !isChildLinked ? { color: colors.textMuted } : (deviceLocked && { color: colors.redDanger })]}>
+                    {!isChildLinked ? 'DISCONNECTED' : (deviceLocked ? 'LOCKED' : 'SECURE')}
                   </Text>
                   <Text style={styles.systemStatusDesc}>
-                    {deviceLocked ? 'Device remotely locked by Parent' : 'All protection services are active'}
+                    {!isChildLinked
+                      ? 'No child device linked yet. Enter code on child phone.'
+                      : (deviceLocked ? 'Device remotely locked by Parent' : 'All protection services are active')}
                   </Text>
                 </View>
               </View>
               <Switch
-                value={deviceLocked}
+                disabled={!isChildLinked}
+                value={isChildLinked && deviceLocked}
                 onValueChange={(val) => changeDeviceLock(val)}
                 trackColor={{ true: colors.redDanger, false: colors.greenSuccess }}
                 thumbColor="#fff"
@@ -452,15 +554,17 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
                       fill="none"
                       strokeLinecap="round"
                       strokeDasharray={`${2 * Math.PI * 40}`}
-                      strokeDashoffset={`${2 * Math.PI * 40 * (1 - Math.min(1, activeChild.currentUsageMinutes / currentLimitMinutes))}`}
+                      strokeDashoffset={`${2 * Math.PI * 40 * (1 - Math.min(1, (isChildLinked ? (activeChild.currentUsageMinutes || 0) : 0) / (currentLimitMinutes || 1)))}`}
                       transform="rotate(-90 50 50)"
                     />
                   </Svg>
                   <View style={styles.circleTextContainer}>
                     <Text style={styles.circleMainText}>
-                      {Math.floor(activeChild.currentUsageMinutes / 60)}h {activeChild.currentUsageMinutes % 60}m
+                      {isChildLinked
+                        ? `${Math.floor((activeChild.currentUsageMinutes || 0) / 60)}h ${(activeChild.currentUsageMinutes || 0) % 60}m`
+                        : '0h 0m'}
                     </Text>
-                    <Text style={styles.circleSubText}>of {currentLimitMinutes / 60}h limit</Text>
+                    <Text style={styles.circleSubText}>of {Math.round((currentLimitMinutes || 120) / 60)}h limit</Text>
                   </View>
                 </View>
               </View>
@@ -472,24 +576,34 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
                   <Text style={styles.cardHeaderTitle}>Apps Used Today</Text>
                 </View>
                 <View style={styles.appsList}>
-                  {(activeChild.appUsage || []).slice(0, 3).map((usage: any, idx: number) => {
-                    const badgeBg = idx === 0 ? '#ef4444' : idx === 1 ? '#3b82f6' : '#22c55e';
-                    const iconName = idx === 0 ? 'play-arrow' : idx === 1 ? 'public' : 'chat';
-                    return (
-                      <View key={usage.name} style={styles.appRowItem}>
-                        <View style={styles.appRowLeft}>
-                          <View style={[styles.appBadge, { backgroundColor: badgeBg }]}>
-                            <Icon name={iconName} color="#fff" size={14} />
+                  {(activeChild.appUsage || []).length > 0 ? (
+                    (activeChild.appUsage || []).slice(0, 3).map((usage: any, idx: number) => {
+                      const badgeBg = idx === 0 ? '#ef4444' : idx === 1 ? '#3b82f6' : '#22c55e';
+                      const iconName = idx === 0 ? 'play-arrow' : idx === 1 ? 'public' : 'chat';
+                      return (
+                        <View key={usage.name} style={styles.appRowItem}>
+                          <View style={styles.appRowLeft}>
+                            <View style={[styles.appBadge, { backgroundColor: badgeBg }]}>
+                              <Icon name={iconName} color="#fff" size={14} />
+                            </View>
+                            <Text style={styles.appRowName} numberOfLines={1}>{usage.name}</Text>
                           </View>
-                          <Text style={styles.appRowName} numberOfLines={1}>{usage.name}</Text>
+                          <Text style={styles.appRowTime}>{usage.time}</Text>
                         </View>
-                        <Text style={styles.appRowTime}>{usage.time}</Text>
-                      </View>
-                    );
-                  })}
-                  <TouchableOpacity onPress={() => setActiveTab('Reports')}>
-                    <Text style={styles.viewAllLink}>View all &gt;</Text>
-                  </TouchableOpacity>
+                      );
+                    })
+                  ) : (
+                    <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                      <Text style={{ color: colors.textMuted, fontSize: 12, textAlign: 'center' }}>
+                        {isChildLinked ? 'No app activity recorded yet today' : 'Connect child device to track app usage'}
+                      </Text>
+                    </View>
+                  )}
+                  {isChildLinked && (
+                    <TouchableOpacity onPress={() => setActiveTab('Reports')}>
+                      <Text style={styles.viewAllLink}>View all &gt;</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
 
@@ -499,22 +613,36 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
                   <Icon name="notifications" color={colors.purpleAccent} size={20} />
                   <Text style={styles.statCardTitle}>Notifications Today</Text>
                 </View>
-                <Text style={styles.statCardValue}>18</Text>
+                <Text style={styles.statCardValue}>
+                  {isChildLinked ? (activeChild.notificationsToday ?? activeChild.notifications_today ?? 0) : 0}
+                </Text>
                 <Text style={styles.statCardSub}>Total Notifications</Text>
               </View>
 
               {/* Card 4: Battery */}
               <View style={styles.statGridCard}>
                 <View style={styles.statCardHeader}>
-                  <Icon name="battery-charging-full" color={colors.greenSuccess} size={20} />
+                  <Icon
+                    name={isChildLinked ? (activeChild.isCharging ? 'battery-charging-full' : 'battery-std') : 'battery-unknown'}
+                    color={isChildLinked ? colors.greenSuccess : colors.textMuted}
+                    size={20}
+                  />
                   <Text style={styles.statCardTitle}>Battery</Text>
                 </View>
-                <Text style={[styles.statCardValue, { color: colors.greenSuccess }]}>
-                  {activeChild.batteryLevel}%
+                <Text style={[styles.statCardValue, { color: isChildLinked ? colors.greenSuccess : colors.textMuted }]}>
+                  {isChildLinked && activeChild.batteryLevel != null
+                    ? `${activeChild.batteryLevel}%`
+                    : (isChildLinked && activeChild.battery ? activeChild.battery : '--%')}
                 </Text>
                 <View style={styles.batterySubRow}>
-                  <Icon name="flash-on" color={colors.greenSuccess} size={12} />
-                  <Text style={styles.batterySubText}>Charging</Text>
+                  <Icon
+                    name={isChildLinked ? (activeChild.isCharging ? 'flash-on' : 'battery-std') : 'cloud-off'}
+                    color={isChildLinked ? colors.greenSuccess : colors.textMuted}
+                    size={12}
+                  />
+                  <Text style={[styles.batterySubText, !isChildLinked && { color: colors.textMuted }]}>
+                    {isChildLinked ? (activeChild.isCharging ? 'Charging' : 'On Battery') : 'Disconnected'}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -528,9 +656,11 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
                     Live Device Telemetry
                   </Text>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.greenSuccess + '20', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
-                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.greenSuccess, marginRight: 6 }} />
-                  <Text style={{ color: colors.greenSuccess, fontSize: 11, fontWeight: '700' }}>Synced Live</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: (isChildLinked ? colors.greenSuccess : colors.textMuted) + '20', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isChildLinked ? colors.greenSuccess : colors.textMuted, marginRight: 6 }} />
+                  <Text style={{ color: isChildLinked ? colors.greenSuccess : colors.textMuted, fontSize: 11, fontWeight: '700' }}>
+                    {isChildLinked ? 'Synced Live' : 'Disconnected'}
+                  </Text>
                 </View>
               </View>
 
@@ -540,42 +670,44 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
                 <View style={{ width: '48%', marginBottom: 12 }}>
                   <Text style={{ color: colors.textMuted, fontSize: 11 }}>CURRENT LOCATION</Text>
                   <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600', marginTop: 2 }}>
-                    📍 123 Cyber Tower, Silicon Valley
+                    {isChildLinked
+                      ? (location?.current_address || (location?.latitude && location?.longitude ? `${Number(location.latitude).toFixed(4)}°, ${Number(location.longitude).toFixed(4)}°` : '📍 Location active'))
+                      : '📍 Waiting for device GPS...'}
                   </Text>
                 </View>
 
                 <View style={{ width: '48%', marginBottom: 12 }}>
                   <Text style={{ color: colors.textMuted, fontSize: 11 }}>CHARGING STATUS</Text>
-                  <Text style={{ color: colors.greenSuccess, fontSize: 13, fontWeight: '600', marginTop: 2 }}>
-                    ⚡ Charging (Plugged In)
+                  <Text style={{ color: isChildLinked ? colors.greenSuccess : colors.textMuted, fontSize: 13, fontWeight: '600', marginTop: 2 }}>
+                    {isChildLinked ? (activeChild.isCharging ? '⚡ Charging (Plugged In)' : '🔋 On Battery') : '⚪ Not Connected'}
                   </Text>
                 </View>
 
                 <View style={{ width: '48%', marginBottom: 12 }}>
                   <Text style={{ color: colors.textMuted, fontSize: 11 }}>SECURITY STATUS</Text>
-                  <Text style={{ color: colors.cyanAccent, fontSize: 13, fontWeight: '600', marginTop: 2 }}>
-                    🛡️ Protected (Score 98/100)
+                  <Text style={{ color: isChildLinked ? colors.cyanAccent : colors.textMuted, fontSize: 13, fontWeight: '600', marginTop: 2 }}>
+                    {isChildLinked ? '🛡️ Protected (Secure)' : '⚠️ Unlinked'}
                   </Text>
                 </View>
 
                 <View style={{ width: '48%', marginBottom: 12 }}>
                   <Text style={{ color: colors.textMuted, fontSize: 11 }}>DEVICE HEALTH</Text>
-                  <Text style={{ color: colors.purpleAccent, fontSize: 13, fontWeight: '600', marginTop: 2 }}>
-                    💚 Optimal (100% Performance)
+                  <Text style={{ color: isChildLinked ? colors.purpleAccent : colors.textMuted, fontSize: 13, fontWeight: '600', marginTop: 2 }}>
+                    {isChildLinked ? '💚 Optimal (Connected)' : '⚪ No Device Linked'}
                   </Text>
                 </View>
 
                 <View style={{ width: '48%' }}>
                   <Text style={{ color: colors.textMuted, fontSize: 11 }}>SOS STATUS</Text>
-                  <Text style={{ color: sosActive ? colors.redDanger : colors.greenSuccess, fontSize: 13, fontWeight: '600', marginTop: 2 }}>
-                    {sosActive ? '🚨 Panic Alert Active' : '✅ Normal - Safe'}
+                  <Text style={{ color: !isChildLinked ? colors.textMuted : (sosActive ? colors.redDanger : colors.greenSuccess), fontSize: 13, fontWeight: '600', marginTop: 2 }}>
+                    {!isChildLinked ? '⚪ Inactive' : (sosActive ? '🚨 Panic Alert Active' : '✅ Normal - Safe')}
                   </Text>
                 </View>
 
                 <View style={{ width: '48%' }}>
                   <Text style={{ color: colors.textMuted, fontSize: 11 }}>LAST SYNCHRONIZATION</Text>
                   <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '600', marginTop: 2 }}>
-                    ⏱️ Just now (Real-time)
+                    {isChildLinked ? '⏱️ Just now (Real-time)' : '⏱️ Not synced'}
                   </Text>
                 </View>
               </View>
@@ -1126,6 +1258,17 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  statusDot: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    borderWidth: 1.5,
+    borderColor: colors.cardBackground,
   },
   avatarText: {
     color: colors.text,

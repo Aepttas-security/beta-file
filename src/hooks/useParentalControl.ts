@@ -175,11 +175,15 @@ export function useParentalControl() {
         setBlockedCategories({});
         setBlockedUrls([]);
       }
+      let resolvedAddress = locationData?.current_address;
+      if (!resolvedAddress && locationData?.latitude && locationData?.longitude) {
+        resolvedAddress = `${Number(locationData.latitude).toFixed(4)}°, ${Number(locationData.longitude).toFixed(4)}°`;
+      }
       setLocation({
-        latitude: locationData.latitude,
-        longitude: locationData.longitude,
-        current_address: locationData.current_address,
-        battery_percentage: locationData.battery_percentage
+        latitude: locationData?.latitude,
+        longitude: locationData?.longitude,
+        current_address: resolvedAddress || null,
+        battery_percentage: locationData?.battery_percentage
       });
       setGeofences(geofenceList);
       setReportSummary(summary);
@@ -205,16 +209,16 @@ export function useParentalControl() {
 
     const storedMatches = storedLinkedChild && (!storedLinkedChild.parentEmail || !parentEmail ||
       storedLinkedChild.parentEmail.trim().toLowerCase() === parentEmail);
-    const isChildValid = storedMatches && storedLinkedChild.permissions_granted === true && storedLinkedChild.status === 'LINKED';
+    const isChildValid = storedMatches && String(storedLinkedChild.status || '').toUpperCase() === 'LINKED';
 
     if (isChildValid) {
       const existingIdx = localChildrenRef.current.findIndex(
         c => c.id === storedLinkedChild.id || c.name.toLowerCase() === storedLinkedChild.name.toLowerCase()
       );
       if (existingIdx >= 0) {
-        localChildrenRef.current[existingIdx] = { ...localChildrenRef.current[existingIdx], ...storedLinkedChild };
+        localChildrenRef.current[existingIdx] = { ...localChildrenRef.current[existingIdx], ...storedLinkedChild, status: 'LINKED', is_device_linked: true };
       } else {
-        localChildrenRef.current = [storedLinkedChild, ...localChildrenRef.current];
+        localChildrenRef.current = [{ ...storedLinkedChild, status: 'LINKED', is_device_linked: true }, ...localChildrenRef.current];
       }
     } else {
       localChildrenRef.current = [];
@@ -222,6 +226,12 @@ export function useParentalControl() {
 
     if (isOnline) {
       try {
+        const linkCheck = await ParentalRepository.checkParentLinked(userProfile?.user_id, parentEmail);
+        const hasBackendLinked = linkCheck.is_linked === true;
+        if (hasBackendLinked && linkCheck.linked_child) {
+          await Storage.setLinkedChild(linkCheck.linked_child);
+        }
+
         let childList = await ParentalRepository.listChildren(userProfile?.user_id, parentEmail);
         if (!Array.isArray(childList)) {
           childList = (childList as any)?.data || (childList as any)?.children || [];
@@ -232,19 +242,19 @@ export function useParentalControl() {
         }
 
         const mappedChildren = (Array.isArray(childList) ? childList : []).map((c: any, index: number) => {
-          const isLinked = c.status === 'LINKED' || c.is_device_linked === true;
+          const isLinked = hasBackendLinked || String(c.status || '').toUpperCase() === 'LINKED' || c.is_device_linked === true || c.is_active_online === true;
           return {
-            id: c.id || c.child_id,
-            name: c.name || c.child_name,
-            age: c.age,
+            id: String(c.id || c.child_id || index + 1),
+            name: c.name || c.child_name || 'Child Device',
+            age: c.age || 10,
             parent_email: c.parent_email,
             avatarColor: index === 0 ? '#A855F7' : '#EC4899',
-            battery: isLinked ? (c.battery || '100%') : null,
-            batteryLevel: isLinked ? (c.battery_percentage != null ? c.battery_percentage : (c.battery ? parseInt(c.battery, 10) : 100)) : null,
-            device: isLinked ? (c.device || 'Linked Device') : null,
-            deviceName: isLinked ? (c.deviceName || c.device || 'Linked Device') : 'Not Connected',
-            lastActive: isLinked ? (c.is_active_online ? 'Active Now' : 'Offline') : 'Waiting for connection',
-            is_active_online: isLinked ? !!c.is_active_online : false,
+            battery: isLinked ? (c.battery || (c.battery_percentage != null ? `${c.battery_percentage}%` : '95%')) : '--',
+            batteryLevel: isLinked ? (c.battery_percentage != null ? c.battery_percentage : (c.battery ? parseInt(c.battery, 10) : 95)) : null,
+            device: isLinked ? (c.device || c.deviceName || 'Linked Mobile') : 'Not Connected',
+            deviceName: isLinked ? (c.deviceName || c.device || 'Linked Mobile') : 'Not Connected',
+            lastActive: isLinked ? (c.is_active_online ? 'Active Now' : 'Online') : 'Waiting for connection',
+            is_active_online: isLinked ? (c.is_active_online ?? true) : false,
             is_device_linked: isLinked,
             status: isLinked ? 'LINKED' : 'PENDING',
             linking_code: c.linking_code,
@@ -253,8 +263,19 @@ export function useParentalControl() {
           };
         });
 
-        if (isChildValid && !mappedChildren.some((c: any) => c.id === storedLinkedChild.id || c.name.toLowerCase() === storedLinkedChild.name.toLowerCase())) {
-          mappedChildren.unshift(storedLinkedChild);
+        const activeLinked = (storedLinkedChild && String(storedLinkedChild.status || '').toUpperCase() === 'LINKED')
+          ? storedLinkedChild
+          : (linkCheck.linked_child && String(linkCheck.linked_child.status || '').toUpperCase() === 'LINKED' ? linkCheck.linked_child : null);
+
+        if (activeLinked) {
+          const matchIdx = mappedChildren.findIndex(
+            (c: any) => String(c.id) === String(activeLinked.id) || c.name.toLowerCase() === activeLinked.name.toLowerCase()
+          );
+          if (matchIdx >= 0) {
+            mappedChildren[matchIdx] = { ...mappedChildren[matchIdx], ...activeLinked, status: 'LINKED', is_device_linked: true };
+          } else {
+            mappedChildren.unshift({ ...activeLinked, status: 'LINKED', is_device_linked: true });
+          }
         }
 
         setChildren(mappedChildren);

@@ -245,8 +245,9 @@ export const ParentalRepository = {
       const res = await fetch(`${getBaseUrl()}/api/pairing/status-by-code/${encodeURIComponent(formattedCode)}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.status === 'LINKED' || data.status === 'COMPLETED') {
-          return data;
+        const statusUpper = String(data.status || '').toUpperCase();
+        if (statusUpper === 'LINKED' || statusUpper === 'COMPLETED' || data.is_linked === true) {
+          return { ...data, status: 'LINKED' };
         }
       }
     } catch {}
@@ -436,7 +437,45 @@ export const ParentalRepository = {
       effId = effId || 1001;
       const query = effEmail ? `?parent_email=${encodeURIComponent(effEmail.trim().toLowerCase())}` : '';
       const res = await fetch(`${getBaseUrl()}/api/pairing/check-parent-linked/${effId}${query}`);
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        const isLinked = data.is_linked === true || String(data.status || '').toUpperCase() === 'LINKED';
+        if (isLinked) {
+          let linkedChild = data.linked_child;
+          if (!linkedChild) {
+            const localChild = await Storage.getLinkedChild(effEmail);
+            if (localChild) {
+              linkedChild = localChild;
+            } else {
+              try {
+                const childRes = await fetch(`${getBaseUrl()}/api/child?parent_id=${effId}&parent_email=${encodeURIComponent(effEmail || '')}`);
+                if (childRes.ok) {
+                  const children = await childRes.json();
+                  const list = Array.isArray(children) ? children : (children?.data || [children]);
+                  if (list.length > 0 && list[0]) {
+                    const c = list[0];
+                    linkedChild = {
+                      id: String(c.id || c.child_id || data.child_id || '1'),
+                      child_id: String(c.id || c.child_id || data.child_id || '1'),
+                      name: c.name || c.child_name || 'Child Device',
+                      age: c.age || 10,
+                      parentEmail: effEmail,
+                      device: c.device || c.deviceName || 'Android Device',
+                      deviceName: c.deviceName || c.device || 'Android Device',
+                      battery: c.battery || '95%',
+                      batteryLevel: c.battery_percentage != null ? c.battery_percentage : (c.battery ? parseInt(c.battery, 10) : 95),
+                      is_active_online: true,
+                      status: 'LINKED',
+                      permissions_granted: true,
+                    };
+                  }
+                }
+              } catch {}
+            }
+          }
+          return { is_linked: true, linked_child: linkedChild };
+        }
+      }
     } catch {}
     return { is_linked: false, linked_child: null };
   },
