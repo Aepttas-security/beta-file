@@ -35,12 +35,16 @@ export const ChildModeScreen: React.FC<ChildModeScreenProps> = ({ onUnlink }) =>
   const [enteredPin, setEnteredPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [childName, setChildName] = useState('Child');
+  const [childProfile, setChildProfile] = useState<any>(null);
 
   useEffect(() => {
     async function loadChildName() {
       const child = await Storage.getLinkedChild();
-      if (child && child.name) {
-        setChildName(child.name);
+      if (child) {
+        setChildProfile(child);
+        if (child.name) {
+          setChildName(child.name);
+        }
       }
     }
     loadChildName();
@@ -313,43 +317,25 @@ export const ChildModeScreen: React.FC<ChildModeScreenProps> = ({ onUnlink }) =>
               <Text style={styles.cardHeaderTitle}>Apps Used Today</Text>
             </View>
             <View style={styles.appsList}>
-              <View style={styles.appRowItem}>
-                <View style={styles.appRowLeft}>
-                  <View style={[styles.appBadge, { backgroundColor: '#ef4444' }]}>
-                    <Icon name="play-arrow" color="#fff" size={14} />
+              {childProfile?.appUsage && childProfile.appUsage.length > 0 ? (
+                childProfile.appUsage.map((item: any, idx: number) => (
+                  <View key={idx} style={styles.appRowItem}>
+                    <View style={styles.appRowLeft}>
+                      <View style={[styles.appBadge, { backgroundColor: item.color || colors.purpleAccent }]}>
+                        <Icon name="apps" color="#fff" size={14} />
+                      </View>
+                      <Text style={styles.appRowName}>{item.name}</Text>
+                    </View>
+                    <Text style={styles.appRowTime}>{item.time || '0m'}</Text>
                   </View>
-                  <Text style={styles.appRowName}>YouTube</Text>
+                ))
+              ) : (
+                <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                  <Text style={{ color: colors.textMuted, fontSize: 13 }}>
+                    No app activity recorded today.
+                  </Text>
                 </View>
-                <Text style={styles.appRowTime}>45m</Text>
-              </View>
-              <View style={styles.appRowItem}>
-                <View style={styles.appRowLeft}>
-                  <View style={[styles.appBadge, { backgroundColor: '#3b82f6' }]}>
-                    <Icon name="public" color="#fff" size={14} />
-                  </View>
-                  <Text style={styles.appRowName}>Chrome</Text>
-                </View>
-                <Text style={styles.appRowTime}>30m</Text>
-              </View>
-              <View style={styles.appRowItem}>
-                <View style={styles.appRowLeft}>
-                  <View style={[styles.appBadge, { backgroundColor: '#22c55e' }]}>
-                    <Icon name="chat" color="#fff" size={14} />
-                  </View>
-                  <Text style={styles.appRowName}>WhatsApp</Text>
-                </View>
-                <Text style={styles.appRowTime}>22m</Text>
-              </View>
-              <View style={styles.appRowItem}>
-                <View style={styles.appRowLeft}>
-                  <View style={[styles.appBadge, { backgroundColor: '#ec4899' }]}>
-                    <Icon name="camera-alt" color="#fff" size={14} />
-                  </View>
-                  <Text style={styles.appRowName}>Instagram</Text>
-                </View>
-                <Text style={styles.appRowTime}>18m</Text>
-              </View>
-              <Text style={styles.viewAllLink}>View all &gt;</Text>
+              )}
             </View>
           </View>
 
@@ -359,7 +345,7 @@ export const ChildModeScreen: React.FC<ChildModeScreenProps> = ({ onUnlink }) =>
               <Icon name="notifications" color={colors.purpleAccent} size={20} />
               <Text style={styles.statCardTitle}>Notifications Today</Text>
             </View>
-            <Text style={styles.statCardValue}>18</Text>
+            <Text style={styles.statCardValue}>{childProfile?.notificationsToday ?? 0}</Text>
             <Text style={styles.statCardSub}>Total Notifications</Text>
           </View>
 

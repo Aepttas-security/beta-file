@@ -199,74 +199,7 @@ export const ParentalControlScreen: React.FC<ParentalControlScreenProps> = ({ on
     }
   };
   
-  const [categorizedApps, setCategorizedApps] = useState<{ [category: string]: { name: string; isBlocked: boolean; icon: string }[] }>({
-    'Action': [
-      { name: 'Call of Duty Mobile', isBlocked: false, icon: 'sports-esports' },
-      { name: 'PUBG Mobile', isBlocked: false, icon: 'sports-esports' },
-      { name: 'Garena Free Fire', isBlocked: true, icon: 'sports-esports' },
-      { name: 'Subway Surfers', isBlocked: false, icon: 'videogame-asset' }
-    ],
-    'Business': [
-      { name: 'Slack', isBlocked: false, icon: 'work' },
-      { name: 'Zoom', isBlocked: false, icon: 'video-call' },
-      { name: 'Microsoft Teams', isBlocked: false, icon: 'business-center' },
-      { name: 'Google Meet', isBlocked: false, icon: 'videocam' }
-    ],
-    'Communication': [
-      { name: 'WhatsApp Messenger', isBlocked: false, icon: 'chat' },
-      { name: 'Telegram', isBlocked: false, icon: 'send' },
-      { name: 'Google Chrome', isBlocked: false, icon: 'language' },
-      { name: 'Gmail', isBlocked: false, icon: 'email' }
-    ],
-    'Entertainment': [
-      { name: 'YouTube', isBlocked: false, icon: 'play-circle-filled' },
-      { name: 'Netflix', isBlocked: false, icon: 'movie' },
-      { name: 'Disney+', isBlocked: false, icon: 'tv' },
-      { name: 'Twitch', isBlocked: true, icon: 'live-tv' }
-    ],
-    'Finance': [
-      { name: 'PayPal', isBlocked: false, icon: 'account-balance-wallet' },
-      { name: 'Google Wallet', isBlocked: false, icon: 'payment' },
-      { name: 'Venmo', isBlocked: false, icon: 'attach-money' }
-    ],
-    'Health & Fitness': [
-      { name: 'Strava', isBlocked: false, icon: 'directions-run' },
-      { name: 'MyFitnessPal', isBlocked: false, icon: 'fitness-center' },
-      { name: 'Fitbit', isBlocked: false, icon: 'watch' }
-    ],
-    'Music & Audio': [
-      { name: 'Spotify', isBlocked: false, icon: 'music-note' },
-      { name: 'Apple Music', isBlocked: false, icon: 'audiotrack' },
-      { name: 'SoundCloud', isBlocked: false, icon: 'radio' },
-      { name: 'YouTube Music', isBlocked: false, icon: 'queue-music' }
-    ],
-    'Photography': [
-      { name: 'Instagram', isBlocked: false, icon: 'camera-alt' },
-      { name: 'Snapchat', isBlocked: true, icon: 'photo-camera' },
-      { name: 'Adobe Lightroom', isBlocked: false, icon: 'brush' }
-    ],
-    'Productivity': [
-      { name: 'Notion', isBlocked: false, icon: 'note-add' },
-      { name: 'Google Calendar', isBlocked: false, icon: 'event' },
-      { name: 'Trello', isBlocked: false, icon: 'dashboard' }
-    ],
-    'Shopping': [
-      { name: 'Amazon Shopping', isBlocked: false, icon: 'shopping-cart' },
-      { name: 'eBay', isBlocked: false, icon: 'storefront' },
-      { name: 'AliExpress', isBlocked: true, icon: 'shopping-bag' }
-    ],
-    'Social': [
-      { name: 'Facebook', isBlocked: false, icon: 'public' },
-      { name: 'TikTok', isBlocked: true, icon: 'videocam' },
-      { name: 'Discord', isBlocked: true, icon: 'forum' },
-      { name: 'X (Twitter)', isBlocked: false, icon: 'tag' }
-    ],
-    'Strategy': [
-      { name: 'Clash of Clans', isBlocked: false, icon: 'extension' },
-      { name: 'Clash Royale', isBlocked: false, icon: 'layers' },
-      { name: 'Chess.com', isBlocked: false, icon: 'grid-on' }
-    ]
-  });
+  const [categorizedApps, setCategorizedApps] = useState<{ [category: string]: { name: string; isBlocked: boolean; icon: string }[] }>({});
   const [sosBannerVisible, setSosBannerVisible] = useState(true);
   
   // Geofencing state
@@ -1018,27 +951,30 @@ export const ParentalControlScreen: React.FC<ParentalControlScreenProps> = ({ on
 
             {/* App Usage List */}
             <Text style={styles.blockSectionTitle}>Most Used Apps Today</Text>
-            {(activeChild.appUsage || []).map((usage: any) => (
-              <View key={usage.name} style={styles.usageRow}>
-                <View style={styles.usageLeft}>
-                  <View style={[styles.appIconContainer, { backgroundColor: usage.color + '22' }]}>
-                    <Icon
-                      name={
-                        usage.name === 'Roblox' || usage.name === 'Minecraft'
-                          ? 'gamepad'
-                          : usage.name.includes('YouTube')
-                          ? 'play-circle'
-                          : 'globe'
-                      }
-                      color={usage.color}
-                      size={20}
-                    />
+            {activeChild.appUsage && activeChild.appUsage.length > 0 ? (
+              activeChild.appUsage.map((usage: any) => (
+                <View key={usage.name} style={styles.usageRow}>
+                  <View style={styles.usageLeft}>
+                    <View style={[styles.appIconContainer, { backgroundColor: (usage.color || colors.purpleAccent) + '22' }]}>
+                      <Icon
+                        name="apps"
+                        color={usage.color || colors.purpleAccent}
+                        size={20}
+                      />
+                    </View>
+                    <Text style={styles.appName}>{usage.name}</Text>
                   </View>
-                  <Text style={styles.appName}>{usage.name}</Text>
+                  <Text style={styles.appDuration}>{usage.time || '0m'}</Text>
                 </View>
-                <Text style={styles.appDuration}>{usage.time}</Text>
+              ))
+            ) : (
+              <View style={{ padding: 16, backgroundColor: colors.cardBackgroundLight, borderRadius: 12, alignItems: 'center', marginBottom: 16 }}>
+                <Icon name="access-time" color={colors.textMuted} size={24} />
+                <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 6 }}>
+                  No app activity recorded for this child profile today.
+                </Text>
               </View>
-            ))}
+            )}
           </View>
         )}
 
@@ -1232,35 +1168,38 @@ export const ParentalControlScreen: React.FC<ParentalControlScreenProps> = ({ on
                       </TouchableOpacity>
 
                       {/* Expanded Apps List */}
-                      {expandedCategory === category && categorizedApps[category] && (
+                      {expandedCategory === category && (
                         <View style={styles.expandedAppsContainer}>
-                          {categorizedApps[category].map((app, appIdx) => {
-                            const isAppBlockedByCat = isBlocked; // if category is blocked, app is forced blocked
-                            const isAppBlocked = isAppBlockedByCat || app.isBlocked;
-                            return (
-                              <View key={app.name} style={styles.appPolicyRow}>
-                                <View style={styles.appPolicyLeft}>
-                                  <View style={[styles.appIconBg, { backgroundColor: colors.cardBackgroundLight }]}>
-                                    <Icon name={app.icon} color={isAppBlocked ? colors.redDanger : colors.greenSuccess} size={16} />
+                          {apps.filter(a => a.category === category || category === 'All Apps and Categories').length > 0 ? (
+                            apps.filter(a => a.category === category || category === 'All Apps and Categories').map((app) => {
+                              const isAppBlockedByCat = isBlocked;
+                              const isAppBlocked = isAppBlockedByCat || app.is_blocked;
+                              return (
+                                <View key={app.app_id || app.app_name} style={styles.appPolicyRow}>
+                                  <View style={styles.appPolicyLeft}>
+                                    <View style={[styles.appIconBg, { backgroundColor: colors.cardBackgroundLight }]}>
+                                      <Icon name="apps" color={isAppBlocked ? colors.redDanger : colors.greenSuccess} size={16} />
+                                    </View>
+                                    <Text style={[styles.appNameText, { color: isAppBlocked ? colors.redDanger : colors.text }]}>
+                                      {app.app_name}
+                                    </Text>
                                   </View>
-                                  <Text style={[styles.appNameText, { color: isAppBlocked ? colors.redDanger : colors.text }]}>
-                                    {app.name}
-                                  </Text>
+                                  <Switch
+                                    value={!isAppBlocked}
+                                    disabled={isAppBlockedByCat}
+                                    onValueChange={() => toggleBlockApp(app.app_id, app.app_name)}
+                                    trackColor={{ true: colors.greenSuccess, false: colors.redDanger }}
+                                  />
                                 </View>
-                                <Switch
-                                  value={!isAppBlocked}
-                                  disabled={isAppBlockedByCat} // disable toggle if category itself is blocked
-                                  onValueChange={(val) => {
-                                    // Toggle individual app block state
-                                    const updated = { ...categorizedApps };
-                                    updated[category][appIdx].isBlocked = !val;
-                                    setCategorizedApps(updated);
-                                  }}
-                                  trackColor={{ true: colors.greenSuccess, false: colors.redDanger }}
-                                />
-                              </View>
-                            );
-                          })}
+                              );
+                            })
+                          ) : (
+                            <View style={{ paddingVertical: 12, paddingHorizontal: 16 }}>
+                              <Text style={{ color: colors.textMuted, fontSize: 13, fontStyle: 'italic' }}>
+                                No installed applications detected in this category.
+                              </Text>
+                            </View>
+                          )}
                         </View>
                       )}
                     </View>
@@ -1469,110 +1408,100 @@ export const ParentalControlScreen: React.FC<ParentalControlScreenProps> = ({ on
               <Text style={styles.reportCardMainTitle}>Weekly Summary Overview</Text>
               <View style={styles.summaryStatsRow}>
                 <View style={styles.summaryStatCol}>
-                  <Text style={styles.summaryStatLabel}>TOTAL USAGE</Text>
-                  <Text style={styles.summaryStatValue}>20h 10m</Text>
+                  <Text style={styles.summaryStatLabel}>TODAY'S USAGE</Text>
+                  <Text style={styles.summaryStatValue}>
+                    {Math.floor((activeChild.currentUsageMinutes || 0) / 60)}h {(activeChild.currentUsageMinutes || 0) % 60}m
+                  </Text>
                 </View>
                 <View style={styles.summaryStatCol}>
-                  <Text style={styles.summaryStatLabel}>DAILY AVG</Text>
-                  <Text style={styles.summaryStatValue}>2h 52m</Text>
+                  <Text style={styles.summaryStatLabel}>DAILY LIMIT</Text>
+                  <Text style={styles.summaryStatValue}>
+                    {Math.floor(currentLimitMinutes / 60)}h {currentLimitMinutes % 60}m
+                  </Text>
                 </View>
                 <View style={styles.summaryStatCol}>
                   <Text style={styles.summaryStatLabel}>LIMIT BREACHES</Text>
-                  <Text style={[styles.summaryStatValue, { color: colors.pinkAccent }]}>1 Time</Text>
+                  <Text style={[styles.summaryStatValue, { color: (activeChild.currentUsageMinutes || 0) > currentLimitMinutes ? colors.pinkAccent : colors.greenSuccess }]}>
+                    {(activeChild.currentUsageMinutes || 0) > currentLimitMinutes ? '1 Time' : '0 Times'}
+                  </Text>
                 </View>
               </View>
             </View>
 
-            {/* 2. Weekly Activity Usage Reports */}
+            {/* 2. Device Screentime Status */}
             <View style={styles.reportCard}>
-              <Text style={styles.reportCardMainTitle}>Weekly Activity Usage Reports</Text>
-              <Text style={styles.reportCardSubtitle}>Total screen hours per day</Text>
-              
-              <View style={styles.barChartContainer}>
-                <View style={styles.chartBarsRow}>
-                  {/* Monday */}
-                  <View style={styles.chartBarCol}>
-                    <View style={[styles.chartBarFill, { height: 55, backgroundColor: colors.cyanAccent }]} />
-                    <Text style={styles.chartBarDayLabel}>M</Text>
+              <Text style={styles.reportCardMainTitle}>Real-Time Screentime Status</Text>
+              <Text style={styles.reportCardSubtitle}>Live sync from child device</Text>
+              <View style={{ marginTop: 12 }}>
+                <View style={styles.reportBarRow}>
+                  <Text style={styles.reportBarLabel}>Screentime Consumed</Text>
+                  <View style={styles.reportBarBg}>
+                    <View
+                      style={[
+                        styles.reportBarFillLine,
+                        {
+                          width: `${Math.min(100, Math.round(((activeChild.currentUsageMinutes || 0) / Math.max(1, currentLimitMinutes)) * 100))}%`,
+                          backgroundColor: (activeChild.currentUsageMinutes || 0) > currentLimitMinutes ? colors.redDanger : colors.cyanAccent,
+                        },
+                      ]}
+                    />
                   </View>
-                  {/* Tuesday */}
-                  <View style={styles.chartBarCol}>
-                    <View style={[styles.chartBarFill, { height: 40, backgroundColor: colors.cyanAccent }]} />
-                    <Text style={styles.chartBarDayLabel}>T</Text>
-                  </View>
-                  {/* Wednesday */}
-                  <View style={styles.chartBarCol}>
-                    <View style={[styles.chartBarFill, { height: 75, backgroundColor: colors.cyanAccent }]} />
-                    <Text style={styles.chartBarDayLabel}>W</Text>
-                  </View>
-                  {/* Thursday */}
-                  <View style={styles.chartBarCol}>
-                    <View style={[styles.chartBarFill, { height: 30, backgroundColor: colors.cyanAccent }]} />
-                    <Text style={styles.chartBarDayLabel}>T</Text>
-                  </View>
-                  {/* Friday */}
-                  <View style={styles.chartBarCol}>
-                    <View style={[styles.chartBarFill, { height: 48, backgroundColor: colors.cyanAccent }]} />
-                    <Text style={styles.chartBarDayLabel}>F</Text>
-                  </View>
-                  {/* Saturday */}
-                  <View style={styles.chartBarCol}>
-                    <View style={[styles.chartBarFill, { height: 68, backgroundColor: colors.pinkAccent }]} />
-                    <Text style={styles.chartBarDayLabel}>S</Text>
-                  </View>
-                  {/* Sunday */}
-                  <View style={styles.chartBarCol}>
-                    <View style={[styles.chartBarFill, { height: 60, backgroundColor: colors.cyanAccent }]} />
-                    <Text style={styles.chartBarDayLabel}>S</Text>
-                  </View>
+                  <Text style={styles.reportBarPct}>
+                    {Math.min(100, Math.round(((activeChild.currentUsageMinutes || 0) / Math.max(1, currentLimitMinutes)) * 100))}%
+                  </Text>
                 </View>
               </View>
             </View>
 
-            {/* 3. Category Activity */}
+            {/* 3. Category App Distribution */}
             <View style={styles.reportCard}>
               <Text style={styles.reportHeaderTitle}>CATEGORY ACTIVITY</Text>
-              <View style={styles.reportBarRow}>
-                <Text style={styles.reportBarLabel}>Social Apps</Text>
-                <View style={styles.reportBarBg}>
-                  <View style={[styles.reportBarFillLine, { width: '42%', backgroundColor: colors.pinkAccent }]} />
+              {apps.length > 0 ? (
+                ['Social', 'Entertainment', 'Games', 'Productivity'].map(cat => {
+                  const catApps = apps.filter(a => a.category === cat);
+                  const pct = Math.round((catApps.length / Math.max(1, apps.length)) * 100);
+                  if (pct === 0) return null;
+                  return (
+                    <View key={cat} style={styles.reportBarRow}>
+                      <Text style={styles.reportBarLabel}>{cat} Apps</Text>
+                      <View style={styles.reportBarBg}>
+                        <View style={[styles.reportBarFillLine, { width: `${pct}%`, backgroundColor: colors.cyanAccent }]} />
+                      </View>
+                      <Text style={styles.reportBarPct}>{pct}%</Text>
+                    </View>
+                  );
+                })
+              ) : (
+                <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                  <Text style={{ color: colors.textMuted, fontSize: 13 }}>
+                    No categorized app distribution available for today.
+                  </Text>
                 </View>
-                <Text style={styles.reportBarPct}>42%</Text>
-              </View>
-              <View style={styles.reportBarRow}>
-                <Text style={styles.reportBarLabel}>Gaming Apps</Text>
-                <View style={styles.reportBarBg}>
-                  <View style={[styles.reportBarFillLine, { width: '48%', backgroundColor: colors.purpleAccent }]} />
-                </View>
-                <Text style={styles.reportBarPct}>48%</Text>
-              </View>
-              <View style={styles.reportBarRow}>
-                <Text style={styles.reportBarLabel}>Educational</Text>
-                <View style={styles.reportBarBg}>
-                  <View style={[styles.reportBarFillLine, { width: '10%', backgroundColor: colors.cyanAccent }]} />
-                </View>
-                <Text style={styles.reportBarPct}>10%</Text>
-              </View>
+              )}
             </View>
 
             {/* 4. Recent Blocked Activities */}
             <View style={styles.reportCard}>
               <Text style={styles.reportCardMainTitleBold}>Recent Blocked Activities</Text>
               <View style={styles.blockedListContainer}>
-                <View style={styles.activityAlert}>
-                  <Icon name="cancel" color={colors.redDanger} size={18} />
-                  <View style={styles.activityAlertTexts}>
-                    <Text style={styles.activityAlertText}>Attempted to open: tiktok.com</Text>
-                    <Text style={styles.activityAlertTime}>Today, 11:20 AM</Text>
+                {blockedUrls.length > 0 ? (
+                  blockedUrls.map((url, idx) => (
+                    <View key={url} style={[styles.activityAlert, idx > 0 && { marginTop: 12 }]}>
+                      <Icon name="cancel" color={colors.redDanger} size={18} />
+                      <View style={styles.activityAlertTexts}>
+                        <Text style={styles.activityAlertText}>Blocked web destination: {url}</Text>
+                        <Text style={styles.activityAlertTime}>Content Protection Policy</Text>
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                    <Icon name="check-circle" color={colors.greenSuccess} size={24} />
+                    <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 6 }}>
+                      Zero blocked policy violations today. Device activity is safe.
+                    </Text>
                   </View>
-                </View>
-                <View style={[styles.activityAlert, { marginTop: 12 }]}>
-                  <Icon name="cancel" color={colors.redDanger} size={18} />
-                  <View style={styles.activityAlertTexts}>
-                    <Text style={styles.activityAlertText}>Discord app launch blocked by policy</Text>
-                    <Text style={styles.activityAlertTime}>Today, 09:15 AM</Text>
-                  </View>
-                </View>
+                )}
               </View>
             </View>
           </View>

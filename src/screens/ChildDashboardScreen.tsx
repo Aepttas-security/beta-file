@@ -93,8 +93,8 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
   const [locationTrackingEnabled, setLocationTrackingEnabled] = useState(true);
 
   // Notification State
-  const [demoPhone, setDemoPhone] = useState('+1 (555) 019-8372');
-  const [demoEmail, setDemoEmail] = useState('parent@family.net');
+  const [demoPhone, setDemoPhone] = useState('');
+  const [demoEmail, setDemoEmail] = useState('');
   const [emailAlertsEnabled, setEmailAlertsEnabled] = useState(true);
   const [smsAlertsEnabled, setSmsAlertsEnabled] = useState(true);
   
@@ -133,8 +133,8 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
     if (prefs) {
       setEmailAlertsEnabled(prefs.email_enabled);
       setSmsAlertsEnabled(prefs.phone_enabled);
-      setDemoEmail(prefs.parent_email || 'parent@family.net');
-      setDemoPhone(prefs.parent_phone || '+1 (555) 019-8372');
+      setDemoEmail(prefs.parent_email || '');
+      setDemoPhone(prefs.parent_phone || '');
     }
   }, [selectedProfileId]);
 
@@ -895,44 +895,49 @@ export const ChildDashboardScreen: React.FC<ChildDashboardScreenProps> = ({ onBa
           <View style={{ width: '100%' }}>
             <View style={styles.reportCard}>
               <Text style={styles.reportHeaderTitle}>CATEGORY ACTIVITY</Text>
-              <View style={styles.reportBarRow}>
-                <Text style={styles.reportBarLabel}>Social Apps</Text>
-                <View style={styles.reportBarBg}>
-                  <View style={[styles.reportBarFill, { width: '42%', backgroundColor: colors.pinkAccent }]} />
+              {apps.length > 0 ? (
+                ['Social', 'Entertainment', 'Games', 'Productivity'].map(cat => {
+                  const catApps = apps.filter(a => a.category === cat);
+                  const pct = Math.round((catApps.length / Math.max(1, apps.length)) * 100);
+                  if (pct === 0) return null;
+                  return (
+                    <View key={cat} style={styles.reportBarRow}>
+                      <Text style={styles.reportBarLabel}>{cat} Apps</Text>
+                      <View style={styles.reportBarBg}>
+                        <View style={[styles.reportBarFill, { width: `${pct}%`, backgroundColor: colors.cyanAccent }]} />
+                      </View>
+                      <Text style={styles.reportBarPct}>{pct}%</Text>
+                    </View>
+                  );
+                })
+              ) : (
+                <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                  <Text style={{ color: colors.textMuted, fontSize: 13 }}>
+                    No categorized app distribution available for today.
+                  </Text>
                 </View>
-                <Text style={styles.reportBarPct}>42%</Text>
-              </View>
-              <View style={styles.reportBarRow}>
-                <Text style={styles.reportBarLabel}>Gaming Apps</Text>
-                <View style={styles.reportBarBg}>
-                  <View style={[styles.reportBarFill, { width: '48%', backgroundColor: colors.purpleAccent }]} />
-                </View>
-                <Text style={styles.reportBarPct}>48%</Text>
-              </View>
-              <View style={styles.reportBarRow}>
-                <Text style={styles.reportBarLabel}>Educational</Text>
-                <View style={styles.reportBarBg}>
-                  <View style={[styles.reportBarFill, { width: '10%', backgroundColor: colors.cyanAccent }]} />
-                </View>
-                <Text style={styles.reportBarPct}>10%</Text>
-              </View>
+              )}
             </View>
 
             <Text style={styles.blockSectionTitle}>Recent Blocked Activities</Text>
-            <View style={styles.activityAlert}>
-              <Icon name="cancel" color={colors.redDanger} size={18} />
-              <View style={styles.activityAlertTexts}>
-                <Text style={styles.activityAlertText}>Attempted to open: tiktok.com</Text>
-                <Text style={styles.activityAlertTime}>Today, 11:20 AM</Text>
+            {blockedUrls.length > 0 ? (
+              blockedUrls.map((url, idx) => (
+                <View key={url} style={[styles.activityAlert, idx > 0 && { marginTop: 8 }]}>
+                  <Icon name="cancel" color={colors.redDanger} size={18} />
+                  <View style={styles.activityAlertTexts}>
+                    <Text style={styles.activityAlertText}>Blocked web destination: {url}</Text>
+                    <Text style={styles.activityAlertTime}>Content Protection Policy</Text>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <View style={{ padding: 16, alignItems: 'center' }}>
+                <Icon name="check-circle" color={colors.greenSuccess} size={24} />
+                <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 6 }}>
+                  No blocked activity recorded. Child browsing is safe.
+                </Text>
               </View>
-            </View>
-            <View style={[styles.activityAlert, { marginTop: 8 }]}>
-              <Icon name="cancel" color={colors.redDanger} size={18} />
-              <View style={styles.activityAlertTexts}>
-                <Text style={styles.activityAlertText}>Discord app launch blocked by policy</Text>
-                <Text style={styles.activityAlertTime}>Today, 09:15 AM</Text>
-              </View>
-            </View>
+            )}
           </View>
         )}
 

@@ -68,7 +68,7 @@ def get_calls(db: Session = Depends(get_db)):
 @router.post("/api/live-call/analyze")
 def log_call(req: CallAnalyzeRequest, db: Session = Depends(get_db)):
     if not is_db_online():
-        return {"status": "success", "risk_score": 85 if ("143" in req.caller_number) else 0}
+        return {"status": "success", "risk_score": 0}
     ensure_user(db)
     try:
         num = clean_num(req.caller_number)
@@ -97,4 +97,4 @@ def log_call(req: CallAnalyzeRequest, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         logger.warning(f"Live call fallback: {e}")
-        return {"status": "success", "risk_score": 85 if ("143" in req.caller_number) else 0}
+        return {"status": "success", "risk_score": 0}

@@ -1439,12 +1439,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
                   <View style={[styles.planCard, { borderColor: colors.border, marginBottom: 12 }]}>
                     <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 2 }}>Registered Email</Text>
-                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: 'bold' }}>{profileData.email || 'parent@guardian.security'}</Text>
+                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: 'bold' }}>{profileData.email || 'No email registered'}</Text>
                   </View>
 
                   <View style={[styles.planCard, { borderColor: colors.border, marginBottom: 12 }]}>
                     <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 2 }}>Phone Number</Text>
-                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: 'bold' }}>{profileData.phone || '+1 (555) 019-2834'}</Text>
+                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: 'bold' }}>{profileData.phone || 'Not provided'}</Text>
                   </View>
 
                   <View style={[styles.planCard, { borderColor: colors.border, marginBottom: 12 }]}>
@@ -1626,7 +1626,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <ScrollView style={styles.menuOptionsContainer} showsVerticalScrollIndicator={false}>
                   <View style={[styles.planCard, { borderColor: colors.cyanAccent + '50', marginBottom: 12 }]}>
                     <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 4 }}>Current Primary Email</Text>
-                    <Text style={{ color: colors.text, fontSize: 16, fontWeight: 'bold' }}>{profileData.email || 'parent@guardian.security'}</Text>
+                    <Text style={{ color: colors.text, fontSize: 16, fontWeight: 'bold' }}>{profileData.email || 'No email registered'}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
                       <Icon name="check-circle" color={colors.greenSuccess} size={16} />
                       <Text style={{ color: colors.greenSuccess, fontSize: 12, fontWeight: 'bold', marginLeft: 6 }}>Verified Account</Text>
@@ -1677,7 +1677,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         color: colors.textMuted,
                         fontSize: 14,
                       }}
-                      value={profileData.email || 'parent@guardian.security'}
+                      value={profileData.email || ''}
                       editable={false}
                     />
                   </View>

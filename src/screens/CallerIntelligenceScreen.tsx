@@ -807,13 +807,13 @@ export const CallerIntelligenceScreen: React.FC<CallerIntelligenceScreenProps> =
                   style={[styles.simBtn, { borderColor: colors.greenSuccess }]}
                   onPress={() =>
                     handleSimulateCall({
-                      name: 'Father Leo',
-                      number: '+1 (555) 019-2831',
-                      riskScore: 2,
+                      name: 'Trusted Contact Test',
+                      number: '+91 98765 00001',
+                      riskScore: 0,
                       type: 'Normal',
-                      carrier: 'Verizon Wireless',
-                      location: 'San Jose, CA',
-                      frequency: '12 calls/week',
+                      carrier: 'Mobile Network',
+                      location: 'Local Contact',
+                      frequency: 'Verified Contact',
                     })
                   }
                 >
@@ -824,13 +824,13 @@ export const CallerIntelligenceScreen: React.FC<CallerIntelligenceScreenProps> =
                   style={[styles.simBtn, { borderColor: colors.orangeWarning }]}
                   onPress={() =>
                     handleSimulateCall({
-                      name: 'Telemarketing Robocall',
-                      number: '+1 (202) 555-0143',
+                      name: 'Commercial Telemarketer',
+                      number: '1409876543',
                       riskScore: 85,
                       type: 'Spam',
-                      carrier: 'Level 3 Telecom',
-                      location: 'Seattle, WA',
-                      frequency: '45 calls/week',
+                      carrier: 'Telemarketing Trunk',
+                      location: 'Commercial DND',
+                      frequency: 'Reported Robocaller',
                     })
                   }
                 >
@@ -841,13 +841,13 @@ export const CallerIntelligenceScreen: React.FC<CallerIntelligenceScreenProps> =
                   style={[styles.simBtn, { borderColor: colors.redDanger }]}
                   onPress={() =>
                     handleSimulateCall({
-                      name: 'IRS Impostor Fraud',
-                      number: '+1 (866) 492-3001',
+                      name: 'Bank KYC Scam Alert',
+                      number: '+91 1800 000 111',
                       riskScore: 98,
                       type: 'Scam',
-                      carrier: 'VoIP Core',
-                      location: 'Washington DC, USA',
-                      frequency: '88 calls/week',
+                      carrier: 'Unverified VoIP',
+                      location: 'Fraud Registry',
+                      frequency: 'Critical Financial Threat',
                     })
                   }
                 >
@@ -858,13 +858,13 @@ export const CallerIntelligenceScreen: React.FC<CallerIntelligenceScreenProps> =
                   style={[styles.simBtn, { borderColor: '#ff1111' }]}
                   onPress={() =>
                     handleSimulateCall({
-                      name: 'Bank Fraud Hijacker',
-                      number: '+1 (800) 999-5566',
+                      name: 'Digital Arrest Threat',
+                      number: '+91 99999 88888',
                       riskScore: 99,
                       type: 'High-Risk',
-                      carrier: 'Imposter Network',
-                      location: 'New York, USA',
-                      frequency: '150 calls/week',
+                      carrier: 'Spoofed Caller ID',
+                      location: 'National Cyber Registry',
+                      frequency: 'Critical Impersonation Alert',
                     })
                   }
                 >

@@ -21,6 +21,7 @@ filters_db: Dict[str, Dict[str, Any]] = {}
 blacklist_db: Dict[str, List[str]] = {}
 sos_db: Dict[str, Any] = {}
 geofences_db: Dict[str, List[Dict[str, Any]]] = {}
+location_db: Dict[str, Dict[str, Any]] = {}
 
 # ============================================
 # 👶 CHILD MANAGEMENT
@@ -383,17 +384,30 @@ def remove_blacklist(child_id: str, url: str):
 @router.get("/api/location/{child_id}/live")
 @router.get("/api/parental/location/{child_id}/live")
 def get_child_live_location(child_id: str):
+    loc = location_db.get(child_id)
+    if loc:
+        return loc
     return {
-        "status": "success",
-        "latitude": 12.9352,
-        "longitude": 77.6245,
-        "accuracy": 10.0,
-        "updated_at": datetime.now().isoformat()
+        "status": "pending",
+        "latitude": None,
+        "longitude": None,
+        "accuracy": None,
+        "updated_at": None,
+        "message": "Waiting for live GPS signal from child device"
     }
 
 @router.post("/api/location/{child_id}/live")
 @router.post("/api/parental/location/{child_id}/live")
 def update_child_live_location(child_id: str, payload: Dict[str, Any]):
+    lat = payload.get("latitude")
+    lng = payload.get("longitude")
+    location_db[child_id] = {
+        "status": "success",
+        "latitude": lat,
+        "longitude": lng,
+        "accuracy": payload.get("accuracy", 10.0),
+        "updated_at": datetime.now().isoformat()
+    }
     return {"status": "success"}
 
 @router.get("/api/location/{child_id}/geofences")
@@ -422,14 +436,19 @@ def get_sos_preferences(child_id: str):
 @router.post("/api/parental/sos/trigger")
 def trigger_sos(payload: Dict[str, Any]):
     child_id = str(payload.get("child_id", "1"))
+    lat = payload.get("latitude") or payload.get("current_latitude")
+    lng = payload.get("longitude") or payload.get("current_longitude")
+    msg = payload.get("emergency_message") or payload.get("message") or "Emergency SOS Triggered"
     sos_db[child_id] = {
         "child_id": child_id,
-        "latitude": payload.get("latitude", 12.9352),
-        "longitude": payload.get("longitude", 77.6245),
+        "latitude": lat,
+        "longitude": lng,
+        "message": msg,
         "triggered_at": datetime.now().isoformat(),
-        "is_active": True
+        "is_active": True,
+        "is_panic_active": True
     }
-    return {"status": "success", "alert_id": "sos-alert-1"}
+    return {"status": "success", "alert_id": f"sos-alert-{uuid.uuid4().hex[:6]}"}
 
 @router.get("/api/sos/active/{child_id}")
 @router.get("/api/parental/sos/active/{child_id}")
@@ -448,11 +467,13 @@ def resolve_sos(child_id: str):
 @router.get("/api/reports/{child_id}/summary")
 @router.get("/api/parental/reports/{child_id}/summary")
 def get_reports_summary(child_id: str):
+    st = screentime_db.get(child_id, {})
+    used_mins = st.get("current_usage_minutes", 0)
     return {
         "child_id": child_id,
-        "total_screen_time_hours": 0.0,
-        "blocked_web_attempts": 0,
-        "flagged_apps_count": 0,
+        "total_screen_time_hours": round(used_mins / 60, 1),
+        "blocked_web_attempts": len(blacklist_db.get(child_id, [])),
+        "flagged_apps_count": len([a for a in apps_db.get(child_id, []) if a.get("is_blocked")]),
         "date": datetime.now().strftime("%Y-%m-%d")
     }
 

@@ -245,10 +245,7 @@ export function useParentalControl() {
           is_active_online: c.is_active_online,
           linking_code: c.linking_code,
           permissions_granted: true,
-          appUsage: [
-            { name: 'YouTube', time: '45m', color: '#A855F7' },
-            { name: 'Chrome', time: '15m', color: '#06B6D4' }
-          ]
+          appUsage: c.app_usage || c.appUsage || []
         }));
 
         if (isChildValid && !mappedChildren.some((c: any) => c.id === storedLinkedChild.id || c.name.toLowerCase() === storedLinkedChild.name.toLowerCase())) {
