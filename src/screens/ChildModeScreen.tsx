@@ -34,7 +34,7 @@ export const ChildModeScreen: React.FC<ChildModeScreenProps> = ({ onUnlink }) =>
   const [showUnlinkModal, setShowUnlinkModal] = useState(false);
   const [enteredPin, setEnteredPin] = useState('');
   const [pinError, setPinError] = useState('');
-  const [childName, setChildName] = useState('Rohan Sharma');
+  const [childName, setChildName] = useState('Child');
 
   useEffect(() => {
     async function loadChildName() {

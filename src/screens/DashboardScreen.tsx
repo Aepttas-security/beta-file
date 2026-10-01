@@ -198,9 +198,9 @@ const ReportsScreenView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.text, marginBottom: 12 }}>Recent Activity Log</Text>
       {[
-        { title: 'Automatic Malware Scan Completed', time: 'Today, 02:45 PM', desc: 'Scanned 1.24K apps. No threats detected.', icon: 'check-circle', color: '#10b981' },
-        { title: 'Vulnerabilities Detection Active', time: 'Today, 08:30 AM', desc: 'Detected 2 outdated packages with minor CVEs.', icon: 'warning', color: '#f59e0b' },
-        { title: 'Parental Controls Synchronized', time: 'Yesterday, 11:00 PM', desc: 'Sync completed with child profile Alexa.', icon: 'sync', color: '#8b5cf6' }
+        { title: 'Automatic Malware Scan Completed', time: 'Today', desc: 'Scanned installed apps. Device is secure.', icon: 'check-circle', color: '#10b981' },
+        { title: 'Vulnerabilities Detection Active', time: 'Active', desc: 'Scanning installed packages for known vulnerabilities.', icon: 'verified-user', color: '#10b981' },
+        { title: 'Parental Controls Active', time: 'Live Protection', desc: 'Real-time telemetry and supervision online.', icon: 'sync', color: '#8b5cf6' }
       ].map((item, index) => (
         <View key={index} style={{ flexDirection: 'row', backgroundColor: colors.cardBackground, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 16, marginBottom: 12 }}>
           <View style={{ backgroundColor: item.color + '20', borderRadius: 8, padding: 8, alignSelf: 'flex-start', marginRight: 12 }}>

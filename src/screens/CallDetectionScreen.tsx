@@ -56,11 +56,11 @@ interface SavedContact {
 
 const CONTACTS_STORAGE_KEY = '@shield_contacts';
 
-// ============================================
-// MAIN COMPONENT
-// ============================================
+interface CallDetectionScreenProps {
+  onBack?: () => void;
+}
 
-const CallDetectionScreen: React.FC = () => {
+const CallDetectionScreen: React.FC<CallDetectionScreenProps> = ({ onBack }) => {
   const { blockedNumbers, callHistory, refreshBlockedNumbers, refreshCallHistory } = useAppContext();
   
   const [activeTab, setActiveTab] = useState<'simulator' | 'search' | 'history' | 'spam'>('search');

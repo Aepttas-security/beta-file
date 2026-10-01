@@ -105,20 +105,15 @@ export function useParentalControl() {
 
     const sc = localScreentimeRef.current[targetId] || {
       child_id: targetId,
-      daily_limit_minutes: 240,
-      current_usage_minutes: 135,
+      daily_limit_minutes: 120,
+      current_usage_minutes: 0,
       is_locked_remotely: false,
     };
     setLimitMinutes(sc.daily_limit_minutes);
     setCurrentUsageMinutes(sc.current_usage_minutes);
     setDeviceLocked(sc.is_locked_remotely);
 
-    const appsList = localAppsRef.current[targetId] || [
-      { app_id: '301', app_name: 'YouTube', category: 'Entertainment', is_blocked: false },
-      { app_id: '302', app_name: 'Chrome', category: 'Browsers', is_blocked: false },
-      { app_id: '303', app_name: 'WhatsApp', category: 'Communication', is_blocked: false },
-      { app_id: '304', app_name: 'Instagram', category: 'Social', is_blocked: false },
-    ];
+    const appsList = localAppsRef.current[targetId] || [];
     setApps([...appsList]);
 
     const filters = localFiltersRef.current[targetId];

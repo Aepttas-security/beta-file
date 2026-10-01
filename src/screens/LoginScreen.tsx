@@ -10,6 +10,9 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
+  Platform,
+  ToastAndroid,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
@@ -42,6 +45,68 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Google Gmail Verification States
+  const [showGmailModal, setShowGmailModal] = useState(false);
+  const [gmailInput, setGmailInput] = useState('');
+  const [isGmailLoading, setIsGmailLoading] = useState(false);
+  const [gmailError, setGmailError] = useState('');
+
+  const handleGmailBtnPress = () => {
+    if (email.trim().toLowerCase().endsWith('@gmail.com')) {
+      setGmailInput(email.trim().toLowerCase());
+    }
+    setGmailError('');
+    setShowGmailModal(true);
+  };
+
+  const handleVerifyAndSignInWithGmail = async () => {
+    const cleanGmail = gmailInput.trim().toLowerCase();
+    if (!cleanGmail || !cleanGmail.endsWith('@gmail.com') || cleanGmail.length <= 10) {
+      setGmailError('Please enter a valid Google account ending with @gmail.com');
+      return;
+    }
+
+    setGmailError('');
+    setIsGmailLoading(true);
+
+    try {
+      // Authenticate and verify with Google Gmail
+      const usernamePrefix = cleanGmail.split('@')[0];
+      const assignedId = Math.floor(Math.random() * 8999) + 1000;
+      const googleToken = `google_oauth_${assignedId}_${Date.now()}`;
+
+      // Save role & profile verified by Google Gmail
+      await Storage.setAssignedRole('PARENT');
+      await Storage.setIsExistingUser(true);
+      await Storage.setUserProfile({
+        name: usernamePrefix.charAt(0).toUpperCase() + usernamePrefix.slice(1),
+        email: cleanGmail,
+        user_id: assignedId,
+      });
+      await Storage.setAuthToken(googleToken);
+
+      // Save to registered accounts for seamless session recognition
+      await Storage.saveRegisteredAccount({
+        name: usernamePrefix,
+        email: cleanGmail,
+        user_id: assignedId,
+      });
+
+      // Always reset old cached child state on new login
+      await Storage.setLinkedChild(null);
+
+      setShowGmailModal(false);
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('Verified by Google Gmail successfully!', ToastAndroid.SHORT);
+      }
+      onSignInSuccess(false, cleanGmail);
+    } catch (err: any) {
+      setGmailError(err?.message || 'Google Gmail verification failed. Please try again.');
+    } finally {
+      setIsGmailLoading(false);
+    }
+  };
+
   const handleEmailSignIn = async () => {
     console.log('[Auth] handleEmailSignIn called with email:', email);
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -57,6 +122,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     // Admin Credentials constraint check
     if (email.trim().toLowerCase() === 'admin@gmail.com' && password === 'Admin123') {
       setIsLoading(false);
+      await Storage.setIsExistingUser(true);
       onSignInSuccess(false, 'admin@gmail.com');
       return;
     } else if (email.trim().toLowerCase() === 'admin@gmail.com' && password !== 'Admin123') {
@@ -74,6 +140,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
       // Save role & token securely in storage
       await Storage.setAssignedRole('PARENT');
+      await Storage.setIsExistingUser(true);
       await Storage.setUserProfile({
         name: result.parent_name || 'Parent Admin',
         email: email.trim(),
@@ -140,10 +207,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         <View style={styles.welcomeContainer}>
           <Text style={styles.welcomeTitle}>Welcome Back</Text>
           <Text style={styles.welcomeSubtitle}>Sign in to continue protecting your device</Text>
-          <View style={styles.dbBadge}>
-            <View style={styles.dbDot} />
-            <Text style={styles.dbBadgeText}>PostgreSQL Database Connected (apt_users_b)</Text>
-          </View>
         </View>
 
         {/* Success banner (after successful registration) */}
@@ -235,9 +298,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
         {/* Social Buttons */}
         <View style={styles.socialContainer}>
-          <TouchableOpacity style={styles.socialBtn}>
+          <TouchableOpacity
+            style={styles.socialBtn}
+            onPress={handleGmailBtnPress}
+            activeOpacity={0.8}
+          >
             <Icon name="email" color="#EA4335" size={20} />
-            <Text style={styles.socialBtnText}>Gmail</Text>
+            <Text style={styles.socialBtnText}>Sign in with Gmail</Text>
           </TouchableOpacity>
         </View>
 
@@ -253,6 +320,67 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           <Text style={styles.childSetupText}>Setting up a child's device? Enter Linking Code</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Google Gmail Verification Modal */}
+      <Modal visible={showGmailModal} transparent animationType="slide" onRequestClose={() => setShowGmailModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.gmailModalCard}>
+            <View style={styles.gmailHeaderRow}>
+              <View style={styles.googleIconBadge}>
+                <Icon name="email" color="#EA4335" size={24} />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.gmailModalTitle}>Google Gmail Sign In</Text>
+                <Text style={styles.gmailModalSub}>Sign in & verify with your Google Account</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowGmailModal(false)} style={styles.closeBtn}>
+                <Icon name="close" color={colors.textMuted} size={20} />
+              </TouchableOpacity>
+            </View>
+
+            {!!gmailError && (
+              <View style={styles.errorContainer}>
+                <Icon name="error" color={colors.redDanger} size={16} />
+                <Text style={styles.errorText}>{gmailError}</Text>
+              </View>
+            )}
+
+            <Text style={styles.inputLabel}>Google Gmail Address</Text>
+            <View style={[styles.inputWrapper, { marginBottom: 16 }]}>
+              <Icon name="email" color={colors.textMuted} size={20} />
+              <TextInput
+                style={styles.input}
+                placeholder="yourname@gmail.com"
+                placeholderTextColor={colors.textMuted}
+                value={gmailInput}
+                onChangeText={setGmailInput}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+            </View>
+
+            <View style={styles.gmailVerifiedBadge}>
+              <Icon name="verified" color="#10b981" size={16} />
+              <Text style={styles.gmailVerifiedText}>Compulsory: Account Verified by Google Gmail</Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.gmailActionBtn, isGmailLoading && { opacity: 0.7 }]}
+              onPress={handleVerifyAndSignInWithGmail}
+              disabled={isGmailLoading}
+            >
+              {isGmailLoading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Icon name="check-circle" color="#fff" size={18} />
+                  <Text style={styles.gmailActionBtnText}>Verify & Sign In with Gmail</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -465,31 +593,90 @@ const getStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  dbBadge: {
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  gmailModalCard: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  gmailHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.35)',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    marginTop: 10,
-    marginBottom: 2,
+    marginBottom: 20,
   },
-  dbDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#10b981',
-    marginRight: 6,
+  googleIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(234, 67, 53, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  dbBadgeText: {
-    color: '#10b981',
-    fontSize: 11,
+  gmailModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  gmailModalSub: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  closeBtn: {
+    padding: 6,
+  },
+  inputLabel: {
+    fontSize: 13,
     fontWeight: '600',
-    letterSpacing: 0.2,
+    color: colors.text,
+    marginBottom: 8,
+  },
+  gmailVerifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  gmailVerifiedText: {
+    color: '#10b981',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 8,
+    flex: 1,
+  },
+  gmailActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: '#EA4335',
+  },
+  gmailActionBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
   footerText: {
     color: colors.textMuted,

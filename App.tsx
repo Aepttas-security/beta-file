@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { StatusBar, StyleSheet, View, LogBox, BackHandler, ToastAndroid, Platform } from 'react-native';
+import { StatusBar, StyleSheet, View, LogBox, BackHandler, ToastAndroid, Platform, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import { colors } from './src/styles/theme';
@@ -61,6 +61,7 @@ function AppContent({ renderScreen }: { renderScreen: () => React.ReactNode }) {
 }
 
 function App() {
+  const [isInitializing, setIsInitializing] = useState(true);
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('DeviceRoleSelection');
   const [screenStack, setScreenStack] = useState<ScreenName[]>(['DeviceRoleSelection']);
   const [signUpSuccessMessage, setSignUpSuccessMessage] = useState('');
@@ -134,6 +135,7 @@ function App() {
         const token = await Storage.getAuthToken();
         const profile = await Storage.getUserProfile();
         const role = await Storage.getAssignedRole();
+        const isExistingUser = await Storage.getIsExistingUser();
 
         if (token || profile) {
           console.log('[Auth] Active session found. Auto-routing...');
@@ -155,14 +157,21 @@ function App() {
           }
           setCurrentScreen('Dashboard');
           setScreenStack(['Dashboard']);
+        } else if (isExistingUser) {
+          console.log('[Auth] Existing user found without active session. Routing to Login...');
+          setCurrentScreen('Login');
+          setScreenStack(['Login']);
         } else {
+          console.log('[Auth] Brand new user. Showing DeviceRoleSelection...');
           setCurrentScreen('DeviceRoleSelection');
           setScreenStack(['DeviceRoleSelection']);
         }
       } catch (error) {
         console.error('[Auth] Session restoration check failed:', error);
-        setCurrentScreen('DeviceRoleSelection');
-        setScreenStack(['DeviceRoleSelection']);
+        setCurrentScreen('Login');
+        setScreenStack(['Login']);
+      } finally {
+        setIsInitializing(false);
       }
     }
     checkLaunchGuard();
@@ -170,9 +179,10 @@ function App() {
 
   const handleSignOut = async () => {
     await Storage.clear();
+    await Storage.setIsExistingUser(true);
     ChildDaemon.stopDaemon();
-    setCurrentScreen('DeviceRoleSelection');
-    setScreenStack(['DeviceRoleSelection']);
+    setCurrentScreen('Login');
+    setScreenStack(['Login']);
   };
 
   const renderScreen = () => {
@@ -288,6 +298,24 @@ function App() {
         );
     }
   };
+
+  if (isInitializing) {
+    return (
+      <ThemeProvider>
+        <SafeAreaProvider>
+          <View style={{ flex: 1, backgroundColor: '#090d16', justifyContent: 'center', alignItems: 'center' }}>
+            <StatusBar barStyle="light-content" backgroundColor="#090d16" />
+            <Image
+              source={require('./src/assets/app_logo.png')}
+              style={{ width: 100, height: 100, marginBottom: 20 }}
+              resizeMode="contain"
+            />
+            <ActivityIndicator size="large" color="#8b5cf6" />
+          </View>
+        </SafeAreaProvider>
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider>

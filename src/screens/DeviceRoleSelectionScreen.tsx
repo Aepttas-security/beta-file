@@ -11,6 +11,7 @@ import {
 import Svg, { Circle, Path, G } from 'react-native-svg';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { Icon } from '../components/Icon';
+import { Storage } from '../utils/storage';
 
 interface DeviceRoleSelectionScreenProps {
   onSelectParent: () => void;
@@ -25,6 +26,18 @@ export const DeviceRoleSelectionScreen: React.FC<DeviceRoleSelectionScreenProps>
 }) => {
   const { colors } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
+
+  const handleSelectParent = async () => {
+    await Storage.setIsExistingUser(true);
+    await Storage.setAssignedRole('PARENT');
+    onSelectParent();
+  };
+
+  const handleSelectChild = async () => {
+    await Storage.setIsExistingUser(true);
+    await Storage.setAssignedRole('CHILD');
+    onSelectChild();
+  };
 
   return (
     <View style={styles.container}>
@@ -56,7 +69,7 @@ export const DeviceRoleSelectionScreen: React.FC<DeviceRoleSelectionScreenProps>
         <TouchableOpacity
           activeOpacity={0.85}
           style={styles.roleCard}
-          onPress={onSelectParent}
+          onPress={handleSelectParent}
         >
           <View style={styles.avatarCircleParent}>
             {/* Parent Illustration Icon */}
@@ -81,7 +94,7 @@ export const DeviceRoleSelectionScreen: React.FC<DeviceRoleSelectionScreenProps>
         <TouchableOpacity
           activeOpacity={0.85}
           style={[styles.roleCard, { marginTop: 24 }]}
-          onPress={onSelectChild}
+          onPress={handleSelectChild}
         >
           <View style={styles.avatarCircleChild}>
             {/* Kids Illustration Icon */}

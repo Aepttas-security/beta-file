@@ -36,34 +36,15 @@ interface ChildDashboardScreenProps {
 const initialProfiles: ChildProfile[] = [
   {
     id: '1',
-    name: 'Alex',
-    age: 12,
+    name: 'Child Device',
+    age: 10,
     avatarColor: colors.purpleAccent,
-    batteryLevel: 84,
-    deviceName: 'Samsung S23 Ultra',
+    batteryLevel: 95,
+    deviceName: 'Android Device',
     lastActive: 'Active Now',
-    currentUsageMinutes: 135,
-    totalLimitMinutes: 240,
-    appUsage: [
-      { name: 'Roblox', time: '1h 15m', color: colors.pinkAccent },
-      { name: 'YouTube', time: '45m', color: colors.purpleAccent },
-      { name: 'Chrome', time: '15m', color: colors.cyanAccent }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Emma',
-    age: 8,
-    avatarColor: colors.pinkAccent,
-    batteryLevel: 92,
-    deviceName: 'iPad Mini 6',
-    lastActive: 'Active 5m ago',
-    currentUsageMinutes: 75,
+    currentUsageMinutes: 0,
     totalLimitMinutes: 120,
-    appUsage: [
-      { name: 'YouTube Kids', time: '45m', color: colors.orangeWarning },
-      { name: 'Minecraft', time: '30m', color: colors.greenSuccess }
-    ]
+    appUsage: []
   }
 ];
 

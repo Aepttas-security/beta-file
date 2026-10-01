@@ -950,17 +950,20 @@ export const ParentalControlScreen: React.FC<ParentalControlScreenProps> = ({ on
                 />
                 <View style={styles.deviceStatusTexts}>
                   <Text style={styles.statusTitle}>
-                    {deviceLocked ? 'Device Blocked (Locked)' : 'Device Active Online'}
+                    {deviceLocked ? 'Device Blocked (Locked)' : `${activeChild.name}'s Device Connected`}
                   </Text>
                   <Text style={styles.statusSub}>
-                    {activeChild.deviceName} • Battery: {activeChild.batteryLevel}%
+                    {activeChild.deviceName || activeChild.device || 'Android Device'} • {activeChild.osType || activeChild.os_type || 'Android'}
+                  </Text>
+                  <Text style={[styles.statusSub, { marginTop: 3, color: colors.cyanAccent, fontWeight: '600' }]}>
+                    Battery: {activeChild.batteryLevel || 95}% • Linked via Link-Code
                   </Text>
                 </View>
               </View>
               <Icon
-                name={activeChild.batteryLevel > 80 ? 'battery-full' : 'battery-alert'}
-                color={activeChild.batteryLevel > 20 ? colors.greenSuccess : colors.redDanger}
-                size={22}
+                name={(activeChild.batteryLevel || 95) > 80 ? 'battery-full' : 'battery-alert'}
+                color={(activeChild.batteryLevel || 95) > 20 ? colors.greenSuccess : colors.redDanger}
+                size={26}
               />
             </View>
 

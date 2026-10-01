@@ -75,36 +75,37 @@ export const TwoStepBindingScreen: React.FC<TwoStepBindingScreenProps> = ({
 
             // Save linked child profile into persistent storage with real dynamic values
             const childName = liveStatus.child_name || storedChild?.name || 'Child Device';
-            const deviceName = liveStatus.device_name || storedChild?.device || 'Linked Device';
-            const childId = String(liveStatus.child_id || storedChild?.id || '1');
+            const deviceName = liveStatus.device_name || storedChild?.device || storedChild?.deviceName || 'Child Mobile Device';
+            const osType = liveStatus.os_type || storedChild?.os_type || storedChild?.osType || 'Android';
+            const batteryLevel = liveStatus.battery_percentage || liveStatus.batteryLevel || storedChild?.batteryLevel || 95;
+            const childId = String(liveStatus.child_id || storedChild?.id || `child_${Date.now()}`);
 
             const linkedProfile = {
               id: childId,
+              child_id: childId,
               name: childName,
+              child_name: childName,
               device: deviceName,
               deviceName: deviceName,
+              os_type: osType,
+              osType: osType,
               age: storedChild?.age || 10,
               parentEmail: storedChild?.parentEmail || '',
               status: 'LINKED',
               permissions_granted: true,
               avatarColor: '#8b5cf6',
-              battery: '84%',
-              batteryLevel: 84,
-              chargingStatus: 'Charging (Plugged In)',
-              currentLocation: 'Live Location Active',
-              securityStatus: 'Protected (Score 98/100)',
-              notificationsToday: 18,
+              battery: `${batteryLevel}%`,
+              batteryLevel: batteryLevel,
+              chargingStatus: 'Normal',
+              currentLocation: 'Live Telemetry Active',
+              securityStatus: 'Protected',
+              notificationsToday: 0,
               sosStatus: 'Normal - Safe',
-              deviceHealth: 'Optimal (100%)',
-              lastSyncTime: 'Just now',
-              currentUsageMinutes: 135,
-              totalLimitMinutes: 240,
-              appUsage: [
-                { name: 'YouTube', time: '45m', color: '#E50914' },
-                { name: 'Chrome', time: '30m', color: '#06B6D4' },
-                { name: 'WhatsApp', time: '22m', color: '#25D366' },
-                { name: 'Instagram', time: '18m', color: '#E1306C' },
-              ],
+              deviceHealth: 'Optimal',
+              lastSyncTime: 'Active Now',
+              currentUsageMinutes: 0,
+              totalLimitMinutes: 120,
+              appUsage: [],
             };
 
             await Storage.setLinkedChild(linkedProfile);

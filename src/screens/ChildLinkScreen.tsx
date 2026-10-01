@@ -90,44 +90,56 @@ export const ChildLinkScreen: React.FC<ChildLinkScreenProps> = ({
     try {
       setIsLoading(true);
       setErrorMessage('');
-      
+
+      // Gather real device mobile hardware & platform information
+      const brand = (Platform.constants as any)?.Brand || '';
+      const model = (Platform.constants as any)?.Model || '';
+      const realDeviceName = (brand && model)
+        ? `${brand} ${model}`
+        : (model || (Platform.OS === 'android' ? 'Android Phone' : 'Apple Device'));
+      const osInfo = Platform.OS === 'android' ? `Android ${Platform.Version || '14'}` : 'iOS';
+      const initialBatteryLevel = 92;
+
       const response = await ParentalRepository.linkChildDevice(
         formattedCode,
         childName.trim(),
-        Platform.OS === 'android' ? 'Samsung S23 Ultra' : 'iPad Mini 6',
-        Platform.OS,
+        realDeviceName,
+        osInfo,
         parentEmail.trim(),
-        ageNum
+        ageNum,
+        initialBatteryLevel
       );
 
-      const childId = String(response?.child_id || '1');
+      const childId = String(response?.child_id || `child_${Date.now()}`);
 
       const newChildProfile = {
         id: childId,
+        child_id: childId,
         name: childName.trim(),
+        child_name: childName.trim(),
         age: ageNum,
         parentEmail: parentEmail.trim(),
-        avatarColor: '#E50914',
-        battery: '84%',
-        batteryLevel: 84,
-        device: Platform.OS === 'android' ? 'Samsung S23 Ultra' : 'iPad Mini 6',
-        deviceName: Platform.OS === 'android' ? 'Samsung S23 Ultra' : 'iPad Mini 6',
+        avatarColor: '#8b5cf6',
+        battery: `${initialBatteryLevel}%`,
+        batteryLevel: initialBatteryLevel,
+        device: realDeviceName,
+        deviceName: realDeviceName,
+        os_type: osInfo,
+        osType: osInfo,
         lastActive: 'Active Now',
         is_active_online: true,
-        currentUsageMinutes: 135,
-        totalLimitMinutes: 240,
-        notificationsToday: 18,
-        appUsage: [
-          { name: 'YouTube', time: '45m', color: '#E50914' },
-          { name: 'Chrome', time: '30m', color: '#06B6D4' },
-          { name: 'WhatsApp', time: '22m', color: '#25D366' },
-          { name: 'Instagram', time: '18m', color: '#E1306C' },
-        ],
+        permissions_granted: true,
+        status: 'LINKED',
+        currentUsageMinutes: 0,
+        totalLimitMinutes: 120,
+        notificationsToday: 0,
+        appUsage: [],
       };
 
       await Storage.setChildId(childId);
       await Storage.setLinkedChild(newChildProfile);
       await Storage.setAssignedRole('CHILD');
+      await Storage.setIsExistingUser(true);
       onLinkSuccess();
     } catch (err: any) {
       setErrorMessage(err?.message || 'Invalid Linking Code. Please check the code and try again.');

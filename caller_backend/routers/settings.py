@@ -76,11 +76,13 @@ def dashboard(db: Session = Depends(get_db)):
 @router.post("/api/login")
 @router.post("/api/auth/login")
 def login(req: LoginRequest):
+    username = req.email.split('@')[0] if req.email and '@' in req.email else "Parent Admin"
+    formatted_name = username.capitalize() if username else "Parent Admin"
     return {
         "status": "success",
         "user_id": 1,
-        "name": "Deepesh",
-        "parent_name": "Deepesh",
+        "name": formatted_name,
+        "parent_name": formatted_name,
         "email": req.email,
         "token_type": "bearer",
         "access_token": "jwt-aepttas-unified-token-1",

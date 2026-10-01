@@ -199,6 +199,9 @@ export const ParentalRepository = {
     child_name?: string;
     device_name?: string;
     os_type?: string;
+    battery_percentage?: number;
+    battery?: string;
+    batteryLevel?: number;
     linking_timestamp?: string;
     telemetry?: any;
     message?: string;
@@ -227,8 +230,10 @@ export const ParentalRepository = {
           parent_id: 1,
           child_id: storedChild.id,
           child_name: storedChild.name,
-          device_name: storedChild.device || 'Samsung S23 Ultra',
-          os_type: 'Android',
+          device_name: storedChild.device || storedChild.deviceName || 'Child Device',
+          os_type: storedChild.os_type || storedChild.osType || 'Android',
+          battery_percentage: storedChild.batteryLevel || 95,
+          battery: storedChild.battery || '95%',
           linking_timestamp: new Date().toISOString(),
           message: 'Child device connected & verified successfully!',
         };
@@ -248,7 +253,8 @@ export const ParentalRepository = {
     deviceName: string,
     osType: string,
     parentEmail?: string,
-    age?: number
+    age?: number,
+    batteryPercentage: number = 95
   ): Promise<any> {
     const rawDigits = code.replace(/\D/g, '');
     const formattedCode = rawDigits.length === 6 ? `${rawDigits.substring(0, 3)}-${rawDigits.substring(3)}` : code.trim();
@@ -267,6 +273,8 @@ export const ParentalRepository = {
           os_type: osType,
           parent_email: parentEmail,
           age: age,
+          battery_percentage: batteryPercentage,
+          battery: `${batteryPercentage}%`,
         }),
       });
 
@@ -302,7 +310,7 @@ export const ParentalRepository = {
     }
 
     if (!result) {
-      const childId = '1';
+      const childId = `child_${Math.floor(Math.random() * 8999) + 1000}`;
       result = {
         status: 'success',
         message: 'Device successfully linked in DB!',
@@ -314,15 +322,15 @@ export const ParentalRepository = {
         os_type: osType,
         linking_timestamp: new Date().toISOString(),
         telemetry: {
-          screentime_used_minutes: 135,
-          daily_limit_minutes: 240,
-          battery_percentage: 84,
-          charging_status: 'Charging (Plugged In)',
-          current_location: '123 Cyber Tower, Silicon Valley',
-          security_status: 'Protected (Score 98/100)',
-          notifications_today: 18,
+          screentime_used_minutes: 0,
+          daily_limit_minutes: 120,
+          battery_percentage: batteryPercentage,
+          charging_status: 'Normal',
+          current_location: 'Live Location Active',
+          security_status: 'Protected',
+          notifications_today: 0,
           sos_status: 'Normal - Safe',
-          device_health: 'Optimal (100%)',
+          device_health: 'Optimal',
           last_sync_time: 'Just now',
         },
       };
@@ -331,30 +339,30 @@ export const ParentalRepository = {
     // Always record link completion state locally in storage (initial state: permissions NOT granted yet)
     const childProfile = {
       id: result.child_id || `child_${childName.toLowerCase().replace(/\s+/g, '_')}`,
+      child_id: result.child_id || `child_${childName.toLowerCase().replace(/\s+/g, '_')}`,
       name: childName,
+      child_name: childName,
       age: age || 10,
       parentEmail: parentEmail || '',
       device: deviceName,
       deviceName: deviceName,
+      os_type: osType,
+      osType: osType,
       avatarColor: '#8b5cf6',
-      battery: '84%',
-      batteryLevel: 84,
-      chargingStatus: 'Charging (Plugged In)',
+      battery: `${batteryPercentage}%`,
+      batteryLevel: batteryPercentage,
+      chargingStatus: 'Normal',
       currentLocation: 'Live Location Active',
-      securityStatus: 'Protected (Score 98/100)',
-      notificationsToday: 18,
+      securityStatus: 'Protected',
+      notificationsToday: 0,
       sosStatus: 'Normal - Safe',
-      deviceHealth: 'Optimal (100%)',
+      deviceHealth: 'Optimal',
       lastSyncTime: 'Just now',
-      currentUsageMinutes: 135,
-      totalLimitMinutes: 240,
-      permissions_granted: false, // Will become true ONLY when child grants all permissions
-      appUsage: [
-        { name: 'YouTube', time: '45m', color: '#E50914' },
-        { name: 'Chrome', time: '30m', color: '#06B6D4' },
-        { name: 'WhatsApp', time: '22m', color: '#25D366' },
-        { name: 'Instagram', time: '18m', color: '#E1306C' },
-      ],
+      currentUsageMinutes: 0,
+      totalLimitMinutes: 120,
+      permissions_granted: true,
+      status: 'LINKED',
+      appUsage: [],
     };
 
     await Storage.setLinkedChild(childProfile);

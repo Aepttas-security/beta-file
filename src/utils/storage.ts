@@ -106,6 +106,20 @@ export const Storage = {
 
   async setAssignedRole(role: 'PARENT' | 'CHILD'): Promise<void> {
     await setStored('assigned_role', role);
+    await setStored('is_existing_user', 'true');
+  },
+
+  async setIsExistingUser(val: boolean): Promise<void> {
+    await setStored('is_existing_user', val ? 'true' : 'false');
+  },
+
+  async getIsExistingUser(): Promise<boolean> {
+    const raw = await getStored('is_existing_user');
+    if (raw === 'true') return true;
+    const profile = await getStored('user_profile');
+    const role = await getStored('assigned_role');
+    const registered = await getStored('registered_accounts');
+    return !!(profile || role || (registered && registered !== '[]'));
   },
 
   async getAssignedRole(): Promise<'PARENT' | 'CHILD' | ''> {
